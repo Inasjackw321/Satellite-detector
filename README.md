@@ -44,12 +44,54 @@ location and the imagery itself are genuine.
 - 🛰️ Full-bleed live **Sentinel-2** imagery per scene, centred on the target.
 - 🧾 WAVE2MAP metadata panel: location, acquisition block, cloud-cover bar,
   decimal-degree coordinates, scene ID, and a live dark **locator inset**.
-- 🔀 **Live Disasters / Showcase** toggle, with graceful offline fallback + banner.
+- 🔀 **Live Disasters / Showcase / Archive** toggle, with graceful offline fallback + banner.
+- ⬇️ **Archive** = real Sentinel-2 imagery **downloaded by a GitHub Action** and committed to the repo (see below).
 - 🌍 Reverse-geocoded country & place names for live disaster scenes.
 - ⚡ Lazy-mounted maps (IntersectionObserver) + "load more" paging for performance.
 - 🕒 UTC mission clock, downlink status pill, deep links to Sentinel Hub EO Browser.
 - 📱 Responsive (panel reflows below the image on small screens); respects
   `prefers-reduced-motion`.
+
+## Download imagery with a GitHub Action
+
+The workflow **`.github/workflows/fetch-imagery.yml`** uses NASA data to pull
+real Sentinel-2 imagery into the repo:
+
+1. Queries **NASA EONET** for current open disaster locations (falls back to the
+   showcase set if EONET is unreachable).
+2. For each location, downloads a Sentinel-2 image (`scripts/fetch-imagery.mjs`).
+3. Reverse-geocodes the place / country, generates the scene metadata, and writes:
+   - `data/scenes/scene-NN.jpg` — the imagery
+   - `data/scenes.json` — a manifest the site reads in **Archive** mode
+4. Commits and pushes the result.
+
+**Run it:** GitHub → **Actions → Fetch Sentinel-2 Imagery → Run workflow**
+(optionally set `limit`, `days`, `width`, `height`). It also runs daily at
+06:00 UTC. After it finishes, open the site and pick **ARCHIVE** to view the
+downloaded scenes.
+
+Try it locally first (no network writes):
+
+```bash
+npm run fetch:imagery               # downloads imagery into data/
+DRY_RUN=1 npm run fetch:imagery     # preview the requests it would make
+```
+
+### Imagery providers
+
+| Mode | Provider | Needs secrets? | Notes |
+|---|---|---|---|
+| Default | **EOX Sentinel-2 cloudless** WMS | No | Key-less; cloud-free annual mosaic |
+| Optional | **Sentinel Hub** Process API (S2 L2A) | Yes | Fresh, date-filtered, least-cloud imagery |
+
+To enable fresh Sentinel Hub imagery, add repo secrets **`SH_CLIENT_ID`** and
+**`SH_CLIENT_SECRET`** (free Copernicus Data Space / Sentinel Hub OAuth client).
+With no secrets, the Action uses the key-less EOX cloudless mosaic. Either way it
+re-images the *current* disaster locations on each run.
+
+> **Note on git size:** each run overwrites the same `scene-NN.jpg` paths so the
+> working tree stays bounded, but binary blobs still accumulate in history. For
+> heavy use, consider Git LFS or publishing imagery as workflow artifacts instead.
 
 ## Run locally
 
@@ -87,7 +129,12 @@ assets/js/
   geocode.js               # key-less reverse geocoding (place / country)
   cards.js                 # WAVE2MAP scene card: imagery + panel + locator
   app.js                   # state, modes, paging, bootstrap
-.github/workflows/deploy.yml
+scripts/fetch-imagery.mjs  # NASA EONET → Sentinel-2 image downloader (Node)
+data/scenes.json           # manifest written by the Action (Archive mode reads it)
+data/scenes/               # downloaded scene-NN.jpg images
+.github/workflows/
+  deploy.yml               # publish to GitHub Pages
+  fetch-imagery.yml        # download Sentinel-2 imagery (manual + daily)
 ```
 
 ## Credits

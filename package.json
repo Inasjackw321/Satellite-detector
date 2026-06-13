@@ -1,0 +1,11 @@
+{
+  "name": "wave2map",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "WAVE2MAP — Sentinel-2 scene feed over NASA EONET disaster locations",
+  "scripts": {
+    "fetch:imagery": "node scripts/fetch-imagery.mjs",
+    "serve": "python3 -m http.server 8000"
+  }
+}

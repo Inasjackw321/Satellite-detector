@@ -119,6 +119,7 @@ export function buildSceneCard(loc) {
   el.className = 'scene';
   el.innerHTML = `
     <div class="scene__img" data-img></div>
+    <span class="scene__pin" aria-hidden="true"></span>
     <div class="scene__scrim"></div>
     <aside class="scene__panel">${panel(loc, meta)}</aside>
     <div class="scene__wm">WAVE2MAP</div>`;
@@ -132,7 +133,15 @@ function mount(card) {
   built.add(card);
   const loc = card._loc;
   try {
-    buildImage(card.querySelector('[data-img]'), loc);
+    if (loc.image) {
+      // Downloaded (ARCHIVE) scene — show the static JPEG, no live tiles.
+      const img = card.querySelector('[data-img]');
+      img.classList.add('scene__img--static');
+      img.style.backgroundImage = `url("${loc.image}")`;
+      card.classList.add('is-static');
+    } else {
+      buildImage(card.querySelector('[data-img]'), loc);
+    }
     buildLocator(card.querySelector('[data-locator]'), loc);
     card.classList.add('is-loaded');
   } catch (err) {

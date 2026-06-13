@@ -53,6 +53,22 @@ function citiesToLocations() {
   }));
 }
 
+function manifestToLocations(manifest) {
+  return (manifest.scenes || []).map((s) => ({
+    id: s.id,
+    name: s.name,
+    lat: s.lat,
+    lon: s.lon,
+    zoom: s.zoom || 12,
+    country: s.country,
+    date: s.date,
+    category: s.category,
+    image: s.image, // downloaded JPEG
+    needsGeocode: false,
+    useGeoName: false,
+  }));
+}
+
 /* ------------------------------- render -------------------------------- */
 function appendPage() {
   const feed = $('feed');
@@ -101,6 +117,25 @@ async function load() {
     setStatus(true, 'SHOWCASE');
     b.step('Compositing Sentinel-2 scenes…');
     renderFresh(citiesToLocations());
+    b.done();
+    return;
+  }
+
+  if (state.mode === 'archive') {
+    b.step('Loading downloaded imagery…');
+    try {
+      const res = await fetch('data/scenes.json', { cache: 'no-store' });
+      if (!res.ok) throw new Error('manifest ' + res.status);
+      const manifest = await res.json();
+      if (!manifest.scenes || !manifest.scenes.length) throw new Error('empty');
+      setBanner('');
+      setStatus(true, `ARCHIVE · ${manifest.provider || 'sentinel-2'} · ${(manifest.generated || '').slice(0, 10)}`);
+      renderFresh(manifestToLocations(manifest));
+    } catch (err) {
+      setStatus(false, 'ARCHIVE · EMPTY');
+      setBanner('No downloaded imagery yet. Run the "Fetch Sentinel-2 Imagery" GitHub Action (Actions tab → Run workflow), then reload.');
+      renderFresh([]);
+    }
     b.done();
     return;
   }
