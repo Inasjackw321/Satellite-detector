@@ -70,18 +70,19 @@ real Sentinel-2 imagery into the repo:
 06:00 UTC. After it finishes, open the site and pick **ARCHIVE** to view the
 downloaded scenes.
 
-Try it locally first (no network writes):
+Try it locally first:
 
 ```bash
+npm install                         # installs sharp (image stitching)
 npm run fetch:imagery               # downloads imagery into data/
-DRY_RUN=1 npm run fetch:imagery     # preview the requests it would make
+DRY_RUN=1 npm run fetch:imagery     # preview the tile plan (no network writes, no sharp needed)
 ```
 
 ### Imagery providers
 
 | Mode | Provider | Needs secrets? | Notes |
 |---|---|---|---|
-| Default | **EOX Sentinel-2 cloudless** WMS | No | Key-less; cloud-free annual mosaic |
+| Default | **EOX Sentinel-2 cloudless** (WMTS tiles, stitched with `sharp`) | No | Key-less; cloud-free annual mosaic |
 | Optional | **Sentinel Hub** Process API (S2 L2A) | Yes | Fresh, date-filtered, least-cloud imagery |
 
 To enable fresh Sentinel Hub imagery, add repo secrets **`SH_CLIENT_ID`** and

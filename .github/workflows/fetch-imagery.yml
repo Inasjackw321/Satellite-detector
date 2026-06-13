@@ -44,6 +44,9 @@ jobs:
         with:
           node-version: "20"
 
+      - name: Install dependencies (sharp)
+        run: npm install --no-audit --no-fund
+
       - name: Download Sentinel-2 imagery (NASA EONET locations)
         env:
           LIMIT: ${{ github.event.inputs.limit || '12' }}
