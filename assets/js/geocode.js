@@ -1,5 +1,5 @@
 /**
- * ORBITAL / WAVE2MAP — reverse geocoding.
+ * Warsummary maps — reverse geocoding.
  * Resolves a lat/lon to a place + country using BigDataCloud's free, key-less,
  * CORS-enabled client endpoint. Cached per coarse coordinate; fails soft.
  */

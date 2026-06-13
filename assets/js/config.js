@@ -1,5 +1,5 @@
 /**
- * WAVE2MAP — configuration.
+ * Warsummary maps — configuration.
  * Imagery layers used by the scene cards. All services are public, key-less and
  * CORS-enabled so the page works as a static site (the visitor's browser is the
  * client).
@@ -16,7 +16,7 @@ export const BASEMAPS = {
   },
 };
 
-/** Dark regional basemap used for the small WAVE2MAP "LOCATION MAP" inset. */
+/** Dark regional basemap used for the small Warsummary maps "LOCATION MAP" inset. */
 export const LOCATOR = {
   url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
   subdomains: 'abcd',

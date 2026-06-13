@@ -49,7 +49,7 @@ export function clamp(n, lo, hi) {
   return Math.max(lo, Math.min(hi, n));
 }
 
-/** Decimal degrees with hemisphere, e.g. "23.1323° N" (matches WAVE2MAP). */
+/** Decimal degrees with hemisphere, e.g. "23.1323° N" (matches Warsummary maps). */
 export function decDeg(value, isLat) {
   const hemi = isLat ? (value >= 0 ? 'N' : 'S') : value >= 0 ? 'E' : 'W';
   return `${Math.abs(value).toFixed(4)}° ${hemi}`;

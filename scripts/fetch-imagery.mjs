@@ -1,25 +1,33 @@
 #!/usr/bin/env node
 /**
- * WAVE2MAP — Sentinel-2 imagery downloader.
+ * Warsummary maps — Sentinel-2 imagery downloader.
  *
- * Downloads a Sentinel-2 image for each tracked coordinate (assets/js/targets.js)
- * and writes:
+ * Downloads the LATEST Sentinel-2 image (no matter the cloud cover) for each
+ * tracked coordinate (assets/js/targets.js), runs a free local AI enhancer over
+ * it, and writes:
  *   data/scenes/scene-NN.jpg   (the imagery)
  *   data/scenes.json           (manifest the website reads in ARCHIVE mode)
  *
  * Imagery providers:
- *   - default: EOX "Sentinel-2 cloudless" WMTS tiles, stitched (key-less)
- *   - optional: Sentinel Hub Process API for fresh, date-filtered S2 L2A
- *     (enabled automatically when SH_CLIENT_ID / SH_CLIENT_SECRET are set)
+ *   - preferred: Sentinel Hub / Copernicus Data Space (free) — most-recent L2A,
+ *     maxCloudCoverage 100, with the real acquisition date/cloud/scene-id from
+ *     the catalog. Enabled when SH_CLIENT_ID / SH_CLIENT_SECRET are set.
+ *   - fallback: EOX "Sentinel-2 cloudless" WMTS tiles, stitched (key-less, but a
+ *     fixed cloud-free mosaic — not "latest").
  *
- * Tunable via env: LIMIT, WIDTH, HEIGHT, EOX_LAYER, SH_CLIENT_ID,
- * SH_CLIENT_SECRET. Designed to run in GitHub Actions (runners have internet).
+ * AI enhancement: UpscalerJS (ESRGAN, TensorFlow.js) via scripts/enhance.mjs —
+ * best-effort, disable with AI_ENHANCE=0.
+ *
+ * Tunable via env: LIMIT, WIDTH, HEIGHT, MONTHS_BACK, ENH_MAX_W, AI_ENHANCE,
+ * EOX_LAYER, SH_CLIENT_ID, SH_CLIENT_SECRET, SH_TOKEN_URL, SH_PROCESS_URL,
+ * SH_CATALOG_URL. Designed to run in GitHub Actions (runners have internet).
  */
 import { writeFile, mkdir, rm } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { generateSceneMeta, cloudLabel } from '../assets/js/meta.js';
 import { TARGETS } from '../assets/js/targets.js';
+import { aiEnhance } from './enhance.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
@@ -34,6 +42,17 @@ const EOX_LAYER = env.EOX_LAYER || 's2cloudless-2020_3857';
 const SH_ID = env.SH_CLIENT_ID || '';
 const SH_SECRET = env.SH_CLIENT_SECRET || '';
 const DRY = env.DRY_RUN === '1' || env.DRY_RUN === 'true';
+const AI_ENHANCE = env.AI_ENHANCE !== '0' && env.AI_ENHANCE !== 'false';
+const MONTHS_BACK = clampInt(env.MONTHS_BACK, 12, 1, 60);
+const ENH_MAX_W = clampInt(env.ENH_MAX_W, 1600, 512, 4096);
+
+// Copernicus Data Space Ecosystem (free Sentinel Hub) endpoints by default.
+const SH_TOKEN_URL =
+  env.SH_TOKEN_URL ||
+  'https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/openid-connect/token';
+const SH_PROCESS_URL = env.SH_PROCESS_URL || 'https://sh.dataspace.copernicus.eu/api/v1/process';
+const SH_CATALOG_URL =
+  env.SH_CATALOG_URL || 'https://sh.dataspace.copernicus.eu/api/v1/catalog/1.0.0/search';
 
 function clampInt(v, def, lo, hi) {
   const n = parseInt(v, 10);
@@ -181,7 +200,7 @@ async function sentinelHubToken() {
     client_id: SH_ID,
     client_secret: SH_SECRET,
   });
-  const res = await fetch('https://services.sentinel-hub.com/oauth/token', {
+  const res = await fetch(SH_TOKEN_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body,
@@ -190,10 +209,41 @@ async function sentinelHubToken() {
   return (await res.json()).access_token;
 }
 
+/**
+ * Find the most recent Sentinel-2 L2A scene over a point — any cloud cover.
+ * Returns { id, datetime, cloud } or null.
+ */
+async function catalogLatest(token, lat, lon) {
+  const to = new Date();
+  const from = new Date(to.getTime() - MONTHS_BACK * 30 * 86400000);
+  const payload = {
+    collections: ['sentinel-2-l2a'],
+    intersects: { type: 'Point', coordinates: [lon, lat] },
+    datetime: `${from.toISOString()}/${to.toISOString()}`,
+    limit: 1,
+    'sortby': [{ field: 'datetime', direction: 'desc' }],
+  };
+  const res = await fetch(SH_CATALOG_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error('SH catalog ' + res.status);
+  const j = await res.json();
+  const f = (j.features || [])[0];
+  if (!f) return null;
+  return {
+    id: f.id,
+    datetime: f.properties?.datetime || null,
+    cloud: f.properties?.['eo:cloud_cover'] ?? null,
+  };
+}
+
 const EVALSCRIPT = `//VERSION=3
 function setup(){return {input:["B02","B03","B04"],output:{bands:3}};}
 function evaluatePixel(s){return [2.5*s.B04, 2.5*s.B03, 2.5*s.B02];}`;
 
+/** Render the latest available imagery in [fromISO,toISO] — any cloud cover. */
 async function fetchSentinelHub(token, bb, fromISO, toISO) {
   const payload = {
     input: {
@@ -206,8 +256,8 @@ async function fetchSentinelHub(token, bb, fromISO, toISO) {
           type: 'sentinel-2-l2a',
           dataFilter: {
             timeRange: { from: fromISO, to: toISO },
-            maxCloudCoverage: 40,
-            mosaickingOrder: 'leastCC',
+            maxCloudCoverage: 100, // latest, no matter the cloud cover
+            mosaickingOrder: 'mostRecent',
           },
         },
       ],
@@ -219,7 +269,7 @@ async function fetchSentinelHub(token, bb, fromISO, toISO) {
     },
     evalscript: EVALSCRIPT,
   };
-  const res = await fetch('https://services.sentinel-hub.com/api/v1/process', {
+  const res = await fetch(SH_PROCESS_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
     body: JSON.stringify(payload),
@@ -230,7 +280,7 @@ async function fetchSentinelHub(token, bb, fromISO, toISO) {
 
 /* --------------------------------- main --------------------------------- */
 async function main() {
-  console.log(`WAVE2MAP imagery fetch · limit=${LIMIT} size=${WIDTH}x${HEIGHT}`);
+  console.log(`Warsummary maps · imagery fetch · limit=${LIMIT} size=${WIDTH}x${HEIGHT}`);
 
   const source = 'targets';
   let locations = TARGETS.map((t, i) => ({
@@ -246,19 +296,20 @@ async function main() {
   console.log(`Tracking ${locations.length} fixed targets`);
   locations = locations.slice(0, LIMIT);
 
-  let provider = SH_ID && SH_SECRET ? 'sentinel-hub' : 'eox-s2cloudless';
+  let provider = SH_ID && SH_SECRET ? 'cdse-s2l2a' : 'eox-s2cloudless';
   let token = null;
-  if (provider === 'sentinel-hub') {
+  if (provider === 'cdse-s2l2a') {
     try {
       token = await sentinelHubToken();
-      console.log('Sentinel Hub: authenticated (fresh L2A imagery)');
+      console.log('Sentinel Hub / CDSE: authenticated — fetching LATEST imagery (any cloud cover)');
     } catch (e) {
-      console.warn(`Sentinel Hub auth failed (${e.message}) — using EOX cloudless`);
+      console.warn(`Sentinel Hub auth failed (${e.message}) — falling back to EOX cloudless mosaic`);
       provider = 'eox-s2cloudless';
     }
   } else {
-    console.log('Provider: EOX Sentinel-2 cloudless (key-less)');
+    console.log('Provider: EOX Sentinel-2 cloudless mosaic (key-less). Set SH_CLIENT_ID/SH_CLIENT_SECRET for latest any-cloud imagery.');
   }
+  console.log(`AI enhancement: ${AI_ENHANCE ? 'enabled' : 'disabled'}`);
 
   if (!DRY) {
     await rm(OUT_DIR, { recursive: true, force: true });
@@ -266,6 +317,7 @@ async function main() {
   }
 
   const scenes = [];
+  let aiSkipReason = null;
   let i = 0;
   for (const loc of locations) {
     i += 1;
@@ -285,16 +337,31 @@ async function main() {
 
     let buf = null;
     let used = provider;
+    let real = null; // real metadata from the catalog, when available
     try {
       if (token) {
-        const to = loc.date ? new Date(loc.date) : new Date();
-        const from = new Date(to.getTime() - 45 * 86400000);
+        let from;
+        let to = new Date();
+        try {
+          const latest = await catalogLatest(token, loc.lat, loc.lon); // any cloud cover
+          if (latest && latest.datetime) {
+            const d = new Date(latest.datetime);
+            from = new Date(d.getTime() - 5 * 86400000);
+            to = new Date(d.getTime() + 1 * 86400000);
+            real = latest;
+          }
+        } catch (ce) {
+          console.warn(`  [${idx}] catalog lookup failed: ${ce.message}`);
+        }
+        if (!from) from = new Date(to.getTime() - MONTHS_BACK * 30 * 86400000);
         buf = await fetchSentinelHub(token, bb, from.toISOString(), to.toISOString());
+        used = 'cdse-s2l2a';
       } else {
         buf = await fetchEOXStitched(loc.lat, loc.lon, span);
       }
     } catch (e) {
       console.warn(`  [${idx}] ${used} failed: ${e.message}${token ? ' — retrying with EOX' : ''}`);
+      real = null;
       if (token) {
         try {
           buf = await fetchEOXStitched(loc.lat, loc.lon, span);
@@ -308,6 +375,24 @@ async function main() {
       console.warn(`  [${idx}] skipped ${loc.name}`);
       continue;
     }
+
+    // Free AI enhancement (best-effort; keeps original on any failure).
+    let enhanced = false;
+    if (AI_ENHANCE) {
+      const r = await aiEnhance(buf);
+      if (r.enhanced) {
+        const sharp = (await import('sharp')).default;
+        // bound output size while keeping the AI-recovered detail
+        buf = await sharp(r.buffer)
+          .resize({ width: ENH_MAX_W, withoutEnlargement: true })
+          .jpeg({ quality: 88 })
+          .toBuffer();
+        enhanced = true;
+      } else if (r.reason) {
+        aiSkipReason = r.reason;
+      }
+    }
+
     await writeFile(join(OUT_DIR, file), buf);
 
     // Resolve a place / country label for the target coordinate.
@@ -319,7 +404,20 @@ async function main() {
       if (g.place) name = g.place;
     }
 
-    const meta = generateSceneMeta({ id: loc.id, name, lat: loc.lat, lon: loc.lon, date: loc.date });
+    // Prefer real acquisition metadata from the catalog; fall back to synthetic.
+    const synth = generateSceneMeta({ id: loc.id, name, lat: loc.lat, lon: loc.lon, date: loc.date });
+    let meta = synth;
+    if (real && real.datetime) {
+      const sat = String(real.id || '').startsWith('S2B') ? 'Sentinel-2B' : 'Sentinel-2A';
+      meta = {
+        satName: sat,
+        ymd: real.datetime.slice(0, 10),
+        timeUTC: real.datetime.slice(11, 19),
+        cloudPct: real.cloud != null ? Math.round(real.cloud * 10) / 10 : synth.cloudPct,
+        sceneId: real.id || synth.sceneId,
+      };
+    }
+
     scenes.push({
       id: loc.id,
       name,
@@ -327,10 +425,11 @@ async function main() {
       lat: loc.lat,
       lon: loc.lon,
       zoom: loc.zoom || 14,
-      date: loc.date || meta.ymd,
+      date: meta.ymd,
       category: loc.category,
       image: `data/scenes/${file}`,
       provider: used,
+      enhanced,
       bbox3857: bb.map((n) => Math.round(n)),
       satName: meta.satName,
       acquired: meta.ymd,
@@ -339,8 +438,14 @@ async function main() {
       cloudLabel: cloudLabel(meta.cloudPct),
       sceneId: meta.sceneId,
     });
-    console.log(`  [${idx}] ${name} — ${(buf.length / 1024).toFixed(0)} KB (${used}, ~${span.toFixed(0)} km)`);
+    console.log(
+      `  [${idx}] ${name} — ${(buf.length / 1024).toFixed(0)} KB (${used}${real ? ', ' + meta.ymd + ', ' + meta.cloudPct + '% cloud' : ''}${enhanced ? ', AI-enhanced' : ''})`
+    );
     await sleep(300);
+  }
+
+  if (AI_ENHANCE && aiSkipReason && !scenes.some((s) => s.enhanced)) {
+    console.warn(`AI enhancement unavailable (${aiSkipReason}) — kept original images. Disable with AI_ENHANCE=0.`);
   }
 
   if (DRY) {

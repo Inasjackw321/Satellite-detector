@@ -1,6 +1,6 @@
 /**
- * ORBITAL / WAVE2MAP — scene card.
- * Renders a full-bleed Sentinel-2 image with the WAVE2MAP metadata panel
+ * Warsummary maps — scene card.
+ * Renders a full-bleed Sentinel-2 image with the Warsummary maps metadata panel
  * overlaid: location, acquisition (satellite / date / UTC time / country),
  * cloud cover, coordinates, scene id and a dark regional locator inset.
  * Maps are lazy-instantiated on scroll; live locations are reverse-geocoded.
@@ -69,7 +69,7 @@ function panel(loc, meta) {
   const cat = loc.category;
 
   return `
-    <div class="wm-brand"><span class="wm-dot"></span> WAVE2MAP</div>
+    <div class="wm-brand"><span class="wm-dot"></span> WARSUMMARY MAPS</div>
     ${cat ? `<div class="wm-tag" style="--c:${cat.color}">${cat.icon} ${esc(cat.title)}</div>` : ''}
 
     <section class="wm-sec">
@@ -109,7 +109,6 @@ function panel(loc, meta) {
 
     <div class="wm-foot">
       <span>Sentinel-2 L2A · ESA / Copernicus</span>
-      <a class="wm-site" href="https://apps.sentinel-hub.com/eo-browser/?lat=${loc.lat}&lng=${loc.lon}&zoom=${loc.zoom || 12}" target="_blank" rel="noopener">wavezmap.xyz ↗</a>
     </div>`;
 }
 
@@ -122,7 +121,7 @@ export function buildSceneCard(loc) {
     <span class="scene__pin" aria-hidden="true"></span>
     <div class="scene__scrim"></div>
     <aside class="scene__panel">${panel(loc, meta)}</aside>
-    <div class="scene__wm">WAVE2MAP</div>`;
+    <div class="scene__wm">WARSUMMARY</div>`;
   el._loc = loc;
   return el;
 }
@@ -145,7 +144,7 @@ function mount(card) {
     buildLocator(card.querySelector('[data-locator]'), loc);
     card.classList.add('is-loaded');
   } catch (err) {
-    console.warn('[WAVE2MAP] scene mount failed', err);
+    console.warn('[Warsummary maps] scene mount failed', err);
   }
 
   // Resolve country / nicer place name for tracked targets.

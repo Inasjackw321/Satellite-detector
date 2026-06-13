@@ -1,5 +1,5 @@
 /**
- * WAVE2MAP — tracked targets.
+ * Warsummary maps — tracked targets.
  * A fixed set of coordinates the site and the imagery downloader both track.
  * Names/countries are resolved at runtime via reverse geocoding.
  */

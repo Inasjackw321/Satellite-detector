@@ -1,5 +1,5 @@
 /**
- * ORBITAL / WAVE2MAP — synthetic Sentinel-2 scene metadata.
+ * Warsummary maps — synthetic Sentinel-2 scene metadata.
  * Generates stable, plausible acquisition details (satellite, date, UTC pass
  * time, cloud cover, MGRS-style scene id) deterministically from a location so
  * values never flicker between renders.

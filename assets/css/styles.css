@@ -1,5 +1,5 @@
 /* ============================================================
-   WAVE2MAP · Sentinel-2 scene feed
+   Warsummary maps · Sentinel-2 scene feed
    ============================================================ */
 
 :root {
@@ -200,7 +200,6 @@ a:hover { text-decoration: underline; }
   display: flex; flex-direction: column; gap: 2px;
   font-size: 9.5px; color: var(--label); letter-spacing: .5px;
 }
-.wm-site { color: var(--teal-dim); }
 
 /* --------------------------- leaflet tweaks --------------------------- */
 .leaflet-container { background: #060a10; font-family: var(--sans); }

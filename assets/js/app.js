@@ -1,5 +1,5 @@
 /**
- * WAVE2MAP — application bootstrap.
+ * Warsummary maps — application bootstrap.
  * Renders a vertical list of full-bleed Sentinel-2 scene cards for a fixed set
  * of tracked coordinates. LIVE shows live imagery tiles; ARCHIVE shows imagery
  * downloaded by the "Fetch Sentinel-2 Imagery" GitHub Action.

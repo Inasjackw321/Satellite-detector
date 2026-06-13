@@ -43,13 +43,15 @@ jobs:
       - name: Install dependencies (sharp)
         run: npm install --no-audit --no-fund
 
-      - name: Download Sentinel-2 imagery (tracked targets)
+      - name: Download latest Sentinel-2 imagery + AI enhance (tracked targets)
         env:
           LIMIT: ${{ github.event.inputs.limit || '12' }}
           WIDTH: ${{ github.event.inputs.width || '1024' }}
           HEIGHT: ${{ github.event.inputs.height || '768' }}
-          # Optional: set these repo secrets to fetch fresh Sentinel-2 L2A
-          # instead of the key-less cloudless mosaic.
+          AI_ENHANCE: ${{ vars.AI_ENHANCE || '1' }}
+          # Set these repo secrets (free Copernicus Data Space OAuth client) to
+          # fetch the LATEST Sentinel-2 L2A imagery regardless of cloud cover.
+          # Without them it falls back to the key-less EOX cloudless mosaic.
           SH_CLIENT_ID: ${{ secrets.SH_CLIENT_ID }}
           SH_CLIENT_SECRET: ${{ secrets.SH_CLIENT_SECRET }}
         run: node scripts/fetch-imagery.mjs
