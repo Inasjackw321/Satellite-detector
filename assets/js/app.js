@@ -1,122 +1,178 @@
 /**
- * ORBITAL — application bootstrap & state.
- * Pulls live NASA EONET disaster events, projects them onto Sentinel-2 imagery
- * and keeps the map / feed / gallery in sync with the active filters.
+ * ORBITAL / WAVE2MAP — application bootstrap.
+ * Builds a vertical list of full-bleed Sentinel-2 scene cards, sourced either
+ * from live NASA EONET disaster locations or a curated showcase set.
  */
 import { fetchEvents } from './api.js';
-import { initMap, setBasemap, plotEvents, flyTo } from './map.js';
-import { initGallery, renderGallery } from './cards.js';
-import {
-  startClock,
-  setLinkStatus,
-  buildFilters,
-  renderStats,
-  renderFeed,
-  renderLegend,
-  initModal,
-  openModal,
-  boot,
-} from './ui.js';
+import { buildSceneCard, observeCard, resetObserver } from './cards.js';
+import { SHOWCASE_CITIES } from './scenes.js';
+import { categoryMeta, SCENE_PAGE } from './config.js';
 
 const state = {
-  all: [],            // every normalised event
-  activeCats: new Set(), // empty == all categories
-  search: '',
-  days: 20,
-  live: false,
+  mode: 'live',     // 'live' | 'showcase'
+  locations: [],
+  shown: 0,
 };
 
-/** Apply category + search filters. */
-function filtered() {
-  const q = state.search.trim().toLowerCase();
-  return state.all.filter((ev) => {
-    if (state.activeCats.size && !state.activeCats.has(ev.categoryId)) return false;
-    if (q && !ev.title.toLowerCase().includes(q)) return false;
-    return true;
+const $ = (id) => document.getElementById(id);
+
+/* ------------------------------ adapters ------------------------------- */
+function cleanName(title) {
+  const parts = String(title).split(/\s[—–-]\s/);
+  return (parts[parts.length - 1] || title).trim();
+}
+
+function eventsToLocations(events) {
+  return events.map((ev) => {
+    const m = categoryMeta(ev.categoryId);
+    return {
+      id: ev.id,
+      name: cleanName(ev.title),
+      lat: ev.lat,
+      lon: ev.lon,
+      zoom: Math.min(13, Math.max(10, m.zoom)),
+      country: null,
+      date: ev.date,
+      category: { id: ev.categoryId, title: ev.categoryTitle, color: m.color, icon: m.icon },
+      needsGeocode: true,
+      useGeoName: true,
+    };
   });
 }
 
-/** Re-render every view from current state. */
-function render() {
-  const list = filtered();
-
-  // sort newest acquisition first for feed + gallery
-  const byDate = [...list].sort((a, b) => new Date(b.date) - new Date(a.date));
-
-  const plotted = plotEvents(list);
-  document.getElementById('map-readout').textContent = `${plotted} events plotted`;
-
-  renderStats(state.all, list);
-  renderFeed(byDate, handleSelect);
-  renderGallery(byDate);
-  buildFilters(state.all, state.activeCats, toggleCategory);
-  renderLegend(state.all);
-
-  document.getElementById('gallery-count').textContent = `${list.length} targets`;
+function citiesToLocations() {
+  return SHOWCASE_CITIES.map((c) => ({
+    id: c.name,
+    name: c.name,
+    lat: c.lat,
+    lon: c.lon,
+    zoom: c.zoom || 12,
+    country: c.country,
+    needsGeocode: false,
+    useGeoName: false,
+  }));
 }
 
-function toggleCategory(id) {
-  if (id === 'all') {
-    state.activeCats.clear();
-  } else if (state.activeCats.has(id)) {
-    state.activeCats.delete(id);
-  } else {
-    state.activeCats.add(id);
+/* ------------------------------- render -------------------------------- */
+function appendPage() {
+  const feed = $('feed');
+  const next = state.locations.slice(state.shown, state.shown + SCENE_PAGE);
+  for (const loc of next) {
+    const card = buildSceneCard(loc);
+    feed.appendChild(card);
+    observeCard(card);
   }
-  render();
+  state.shown += next.length;
+  $('load-more').hidden = state.shown >= state.locations.length;
+  $('count').textContent = `${state.locations.length} scenes`;
 }
 
-function handleSelect(ev) {
-  flyTo(ev, 7);
-  openModal(ev);
+function renderFresh(locations) {
+  resetObserver();
+  const feed = $('feed');
+  feed.innerHTML = '';
+  state.locations = locations;
+  state.shown = 0;
+  if (!locations.length) {
+    feed.innerHTML = `<p class="empty">No scenes to display.</p>`;
+    $('load-more').hidden = true;
+    return;
+  }
+  appendPage();
 }
 
+function setBanner(msg) {
+  const b = $('banner');
+  if (!msg) {
+    b.hidden = true;
+    return;
+  }
+  b.textContent = msg;
+  b.hidden = false;
+}
+
+/* -------------------------------- load --------------------------------- */
 async function load() {
-  const b = boot([1, 2, 3, 4]);
+  const b = boot();
   b.step('Establishing downlink…');
 
-  const { events, live } = await fetchEvents({ days: state.days, limit: 500 });
-  state.all = events;
-  state.live = live;
+  if (state.mode === 'showcase') {
+    setBanner('');
+    setStatus(true, 'SHOWCASE');
+    b.step('Compositing Sentinel-2 scenes…');
+    renderFresh(citiesToLocations());
+    b.done();
+    return;
+  }
 
-  b.step('Decoding telemetry…');
-  setLinkStatus(live);
+  // live mode
+  b.step('Querying NASA EONET…');
+  const { events, live } = await fetchEvents({ days: 30, limit: 120 });
+  b.step('Compositing Sentinel-2 scenes…');
 
-  b.step('Projecting onto Sentinel-2 imagery…');
-  render();
-
-  b.step('Calibrating optics…');
+  if (live) {
+    setBanner('');
+    setStatus(true, 'LIVE · NASA EONET');
+    renderFresh(eventsToLocations(events));
+  } else {
+    setBanner('Live disaster feed unreachable — showing showcase scenes. Toggle to retry.');
+    setStatus(false, 'OFFLINE · SHOWCASE');
+    renderFresh(citiesToLocations());
+  }
   b.done();
 }
 
-function wireControls() {
-  document.getElementById('days').addEventListener('change', (e) => {
-    state.days = Number(e.target.value);
-    load();
-  });
-
-  document.getElementById('basemap').addEventListener('change', (e) => {
-    setBasemap(e.target.value);
-  });
-
-  let searchTimer;
-  document.getElementById('search').addEventListener('input', (e) => {
-    clearTimeout(searchTimer);
-    searchTimer = setTimeout(() => {
-      state.search = e.target.value;
-      render();
-    }, 180);
-  });
-
-  document.getElementById('refresh').addEventListener('click', load);
+/* --------------------------- header / chrome --------------------------- */
+function setStatus(ok, label) {
+  const pill = $('status');
+  pill.classList.toggle('is-off', !ok);
+  $('status-label').textContent = label;
 }
 
+function setMode(mode) {
+  if (state.mode === mode) return;
+  state.mode = mode;
+  document.querySelectorAll('.seg__btn').forEach((btn) =>
+    btn.classList.toggle('is-on', btn.dataset.mode === mode)
+  );
+  load();
+}
+
+function startClock() {
+  const el = $('clock');
+  const tick = () => (el.textContent = new Date().toISOString().slice(11, 19) + ' UTC');
+  tick();
+  setInterval(tick, 1000);
+}
+
+/* ----------------------------- boot screen ----------------------------- */
+function boot() {
+  const fill = $('boot-fill');
+  const status = $('boot-status');
+  const el = $('boot');
+  let i = 0;
+  const total = 3;
+  return {
+    step(msg) {
+      i += 1;
+      if (status) status.textContent = msg;
+      if (fill) fill.style.width = `${Math.round((i / total) * 100)}%`;
+    },
+    done() {
+      if (fill) fill.style.width = '100%';
+      setTimeout(() => el && el.classList.add('is-hidden'), 300);
+    },
+  };
+}
+
+/* -------------------------------- init --------------------------------- */
 function main() {
   startClock();
-  initMap('map', handleSelect);
-  initGallery('gallery', 'load-more', openModal);
-  initModal();
-  wireControls();
+  $('load-more').addEventListener('click', appendPage);
+  $('refresh').addEventListener('click', load);
+  document.querySelectorAll('.seg__btn').forEach((btn) =>
+    btn.addEventListener('click', () => setMode(btn.dataset.mode))
+  );
   load();
 }
 
