@@ -55,6 +55,25 @@ export function clamp(n, lo, hi) {
   return Math.max(lo, Math.min(hi, n));
 }
 
+/** Decimal degrees with hemisphere, e.g. "23.1323° N" (matches WAVE2MAP). */
+export function decDeg(value, isLat) {
+  const hemi = isLat ? (value >= 0 ? 'N' : 'S') : value >= 0 ? 'E' : 'W';
+  return `${Math.abs(value).toFixed(4)}° ${hemi}`;
+}
+
+/** UTM zone number for a longitude (1–60). */
+export function utmZone(lon) {
+  const norm = (((lon + 180) % 360) + 360) % 360;
+  return Math.floor(norm / 6) + 1;
+}
+
+/** MGRS latitude band letter (C–X, excluding I and O). */
+export function mgrsBand(lat) {
+  const bands = 'CDEFGHJKLMNPQRSTUVWX';
+  const i = Math.floor((clamp(lat, -80, 83.999) + 80) / 8);
+  return bands[clamp(i, 0, bands.length - 1)];
+}
+
 /** Escape text destined for innerHTML. */
 export function esc(str) {
   return String(str ?? '').replace(/[&<>"']/g, (c) => ({

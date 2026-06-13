@@ -1,96 +1,101 @@
-# ◎ ORBITAL — Disaster Intelligence
+# ◉ WAVE2MAP — Sentinel-2 Scene Feed
 
-A static, zero-backend **GitHub Pages** web app that pulls live natural-disaster
-events from **NASA EONET** and projects each one onto real **Sentinel-2**
-satellite imagery, with a mission-control HUD overlaid on every target.
+A static, zero-backend **GitHub Pages** web app that renders a vertical feed of
+full-bleed **Sentinel-2** satellite scenes. Each scene is annotated with a clean
+metadata panel — location, satellite, acquisition date/time (UTC), cloud cover,
+coordinates, an MGRS-style scene ID, and a dark regional locator map.
 
-> Open the deployed page and it immediately downlinks the latest global
-> disasters (wildfires, volcanoes, storms, floods, ice, dust, landslides …),
-> plots them on a Sentinel-2 world map, and renders a gallery of
-> satellite "targets" — each a live close-up image with coordinates, acquisition
-> time, magnitude and status drawn directly on the imagery.
+Two sources feed the list:
+
+- **● Live Disasters** — locations pulled from the **NASA EONET** natural-event
+  tracker (wildfires, volcanoes, storms, floods, …), reverse-geocoded for the
+  place / country fields.
+- **Showcase** — a curated set of visually striking targets (Havana, Venice,
+  Dubai, Cape Town, the Grand Canyon …). This is also the automatic fallback if
+  the live feed is unreachable, so the page always looks right.
+
+Everything runs in the visitor's browser using **public, key-less** services.
 
 ---
 
-## What it does
+## Data & imagery
 
-| Capability | How |
+| Field | Source |
 |---|---|
-| **Find disasters** | [NASA EONET v3](https://eonet.gsfc.nasa.gov/) events API (key-less, CORS-enabled) |
-| **Show satellite imagery** | [Sentinel-2 cloudless](https://s2maps.eu) WMTS by EOX (ESA Copernicus) |
-| **Near-real-time imagery (optional)** | [NASA GIBS](https://earthdata.nasa.gov/gibs) VIIRS/SNPP true colour |
-| **Place labels / borders** | EOX bright overlay |
-| **Mapping** | [Leaflet](https://leafletjs.com) |
+| Satellite imagery (the scene) | [Sentinel-2 cloudless](https://s2maps.eu) WMTS by EOX (ESA Copernicus) |
+| Disaster locations | [NASA EONET v3](https://eonet.gsfc.nasa.gov/) events API |
+| Place / country | [BigDataCloud](https://www.bigdatacloud.com/) reverse-geocode (client, key-less) |
+| Locator inset map | [CARTO](https://carto.com/) dark basemap (© OpenStreetMap) |
+| Mapping engine | [Leaflet](https://leafletjs.com) |
 
-Every data source is **public, free, and requires no API key**, so the whole
-thing runs entirely in the visitor's browser — perfect for GitHub Pages.
+No API keys, no build step, no server.
+
+### A note on the scene metadata
+
+EONET tells us *where* and *when* a disaster is, but not the full Sentinel-2
+acquisition record. The **satellite (A/B), exact UTC pass time, cloud-cover %
+and MGRS scene ID** are generated deterministically per location (seeded from its
+name + coordinates) so they're stable and plausible — the UTM zone / latitude
+band in the scene ID are computed for real (e.g. Havana → `17Q…`). Coordinates,
+location and the imagery itself are genuine.
 
 ## Features
 
-- 🛰️ **Global theatre map** on a Sentinel-2 basemap with animated, category-coloured target markers.
-- 🎯 **Satellite target gallery** — each card is a live Sentinel-2 mini-map with a
-  HUD drawn on it: corner brackets, target reticle, scan line, and a data readout
-  (category, ACTIVE/CLOSED status, lat/lon in DMS, acquisition time, magnitude, sensor).
-- 🧭 **Detail inspector** — click any target for a larger interactive map, full
-  metadata, and deep links to the NASA EONET record, the original source, and
-  Sentinel Hub EO Browser.
-- 🔎 **Filters** by disaster category, a name search, and a time window (7d → 1yr).
-- 🌐 **Switchable imagery**: Sentinel-2 cloudless · NASA VIIRS (NRT) · Terrain.
-- 📊 Live **stats**, an **event feed**, a UTC mission clock, and a downlink status pill.
-- 🛟 **Offline fallback** — a bundled sample dataset so the page is never empty if
-  the live feed is blocked or rate-limited.
-- 📱 Responsive, dark mission-control theme; respects `prefers-reduced-motion`.
+- 🛰️ Full-bleed live **Sentinel-2** imagery per scene, centred on the target.
+- 🧾 WAVE2MAP metadata panel: location, acquisition block, cloud-cover bar,
+  decimal-degree coordinates, scene ID, and a live dark **locator inset**.
+- 🔀 **Live Disasters / Showcase** toggle, with graceful offline fallback + banner.
+- 🌍 Reverse-geocoded country & place names for live disaster scenes.
+- ⚡ Lazy-mounted maps (IntersectionObserver) + "load more" paging for performance.
+- 🕒 UTC mission clock, downlink status pill, deep links to Sentinel Hub EO Browser.
+- 📱 Responsive (panel reflows below the image on small screens); respects
+  `prefers-reduced-motion`.
 
-## Run it locally
+## Run locally
 
-It's a static site — no build, no dependencies to install. Just serve the folder:
+It's a static site — serve the folder (so ES-module imports load):
 
 ```bash
-# any static server works; here are two
 python3 -m http.server 8000
-# or
-npx serve .
+# or: npx serve .
 ```
 
-Then open <http://localhost:8000>. (Use a server rather than opening the file
-directly so the ES-module imports load correctly.)
+Then open <http://localhost:8000>.
 
 ## Deploy to GitHub Pages
 
-A workflow is included at `.github/workflows/deploy.yml`.
+The workflow at `.github/workflows/deploy.yml` publishes the repo root.
 
-1. Push this repository to GitHub.
-2. In **Settings → Pages**, set **Build and deployment → Source** to **GitHub Actions**.
-3. The workflow runs on pushes to `main` (and `claude/**` branches) and publishes
-   the site. Its summary shows the live URL.
+1. Push to GitHub.
+2. **Settings → Pages → Build and deployment → Source: GitHub Actions**.
+3. It deploys on pushes to `main` (and `claude/**`); the run summary shows the URL.
 
-No secrets or environment variables are required.
+No secrets required.
 
 ## Project structure
 
 ```
-index.html                 # app shell
-.nojekyll                  # serve asset folders verbatim
-assets/css/styles.css      # mission-control theme + HUD
+index.html                 # app shell (header + scene feed)
+.nojekyll
+assets/css/styles.css      # WAVE2MAP theme
 assets/js/
-  config.js                # endpoints, basemaps, category metadata
-  format.js                # coordinate / time helpers (DMS, time-ago)
-  api.js                   # EONET fetch + normalisation (+ fallback)
-  fallback.js              # bundled sample events
-  map.js                   # main Leaflet theatre + markers
-  cards.js                 # satellite target gallery + HUD + mini-maps
-  ui.js                    # filters, stats, feed, legend, modal, clock
-  app.js                   # state + bootstrap
+  config.js                # endpoints, basemaps, locator, category metadata
+  format.js                # coordinate (DMS / decimal), UTM/MGRS, time helpers
+  api.js                   # NASA EONET fetch + normalisation
+  scenes.js                # curated showcase targets (+ offline fallback)
+  meta.js                  # deterministic Sentinel-2 scene metadata generator
+  geocode.js               # key-less reverse geocoding (place / country)
+  cards.js                 # WAVE2MAP scene card: imagery + panel + locator
+  app.js                   # state, modes, paging, bootstrap
 .github/workflows/deploy.yml
 ```
 
-## Notes & credits
+## Credits
 
 - Sentinel-2 imagery © ESA Copernicus, mosaic by
-  [EOX IT Services GmbH](https://maps.eox.at) (CC BY-NC-SA 4.0 for the cloudless
-  layer — fine for this non-commercial demo).
-- Disaster data courtesy of **NASA EONET** / Earth Observatory.
-- Near-real-time imagery from **NASA GIBS**.
+  [EOX IT Services GmbH](https://maps.eox.at).
+- Disaster data © **NASA EONET** / Earth Observatory.
+- Reverse geocoding © **BigDataCloud**. Locator tiles © OpenStreetMap, © CARTO.
 
-This is an educational / situational-awareness visualisation, **not** an
-authoritative emergency source. Always defer to official agencies.
+Educational / situational-awareness visualisation — not an authoritative
+emergency source. The WAVE2MAP styling is an homage to satellite-scene browsers.

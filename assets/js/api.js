@@ -5,7 +5,6 @@
  * feed is unreachable, so the page always renders something meaningful.
  */
 import { EONET } from './config.js';
-import { FALLBACK_EVENTS } from './fallback.js';
 
 /**
  * Reduce an EONET geometry array to a single representative point.
@@ -72,7 +71,8 @@ function normalize(ev) {
 }
 
 /**
- * Fetch live events.
+ * Fetch live events. On any failure returns an empty list with live=false so
+ * the caller can fall back to showcase scenes.
  * @param {{days?:number, status?:string, limit?:number}} opts
  * @returns {Promise<{events:Object[], live:boolean}>}
  */
@@ -96,8 +96,7 @@ export async function fetchEvents({ days = 20, status = 'all', limit = 400 } = {
     if (!events.length) throw new Error('empty feed');
     return { events, live: true };
   } catch (err) {
-    console.warn('[ORBITAL] live feed unavailable, using fallback:', err.message);
-    const events = FALLBACK_EVENTS.map(normalize).filter(Boolean);
-    return { events, live: false };
+    console.warn('[WAVE2MAP] live feed unavailable:', err.message);
+    return { events: [], live: false };
   }
 }

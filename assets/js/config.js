@@ -51,6 +51,15 @@ export const LABELS_OVERLAY = {
   attribution: 'Overlay © OpenStreetMap contributors · EOX',
 };
 
+/** Dark regional basemap used for the small WAVE2MAP "LOCATION MAP" inset. */
+export const LOCATOR = {
+  url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+  subdomains: 'abcd',
+  maxZoom: 18,
+  zoom: 6,
+  attribution: '© OpenStreetMap © CARTO',
+};
+
 /**
  * Category styling. Keys are EONET category ids.
  * color drives markers / HUD accents; icon is a glyph; zoom is the preferred
@@ -78,5 +87,5 @@ export function categoryMeta(id) {
   return CATEGORIES[id] || DEFAULT_CATEGORY;
 }
 
-/** How many target cards to render per "page". */
-export const GALLERY_PAGE = 18;
+/** How many scene cards to render per "page". */
+export const SCENE_PAGE = 8;
