@@ -1,7 +1,7 @@
 {
-  "generated": "2026-06-13T09:26:44.126Z",
+  "generated": "2026-06-13T13:49:30.803Z",
   "source": "targets",
-  "provider": "eox-s2cloudless",
+  "provider": "planetary-computer",
   "width": 1024,
   "height": 768,
   "count": 6,
@@ -13,10 +13,10 @@
       "lat": 25.12427907184322,
       "lon": 51.31593736073995,
       "zoom": 14,
-      "date": "2026-05-16",
+      "date": "2026-06-02",
       "category": null,
       "image": "data/scenes/scene-01.jpg",
-      "provider": "eox-s2cloudless",
+      "provider": "planetary-computer",
       "enhanced": false,
       "bbox3857": [
         5705797,
@@ -25,11 +25,11 @@
         2896017
       ],
       "satName": "Sentinel-2A",
-      "acquired": "2026-05-16",
-      "timeUTC": "07:10:18",
-      "cloudPct": 15,
-      "cloudLabel": "Mostly clear",
-      "sceneId": "S2A_39RWK_20260516_3_L2A"
+      "acquired": "2026-06-02",
+      "timeUTC": "07:06:21",
+      "cloudPct": 38.3,
+      "cloudLabel": "Partly cloudy",
+      "sceneId": "S2C_MSIL2A_20260602T070621_R106_T39RWH_20260602T123110"
     },
     {
       "id": "T02",
@@ -38,10 +38,10 @@
       "lat": 24.06242368712488,
       "lon": 47.56557171415564,
       "zoom": 14,
-      "date": "2026-06-04",
+      "date": "2026-05-31",
       "category": null,
       "image": "data/scenes/scene-02.jpg",
-      "provider": "eox-s2cloudless",
+      "provider": "planetary-computer",
       "enhanced": false,
       "bbox3857": [
         5288309,
@@ -49,12 +49,12 @@
         5301642,
         2766017
       ],
-      "satName": "Sentinel-2A",
-      "acquired": "2026-06-04",
-      "timeUTC": "07:28:33",
-      "cloudPct": 10,
-      "cloudLabel": "Mostly clear",
-      "sceneId": "S2A_38RHB_20260604_1_L2A"
+      "satName": "Sentinel-2B",
+      "acquired": "2026-05-31",
+      "timeUTC": "07:16:09",
+      "cloudPct": 0,
+      "cloudLabel": "Clear sky",
+      "sceneId": "S2B_MSIL2A_20260531T071609_R006_T38QQM_20260531T111539"
     },
     {
       "id": "T03",
@@ -63,10 +63,10 @@
       "lat": 29.34505943462331,
       "lon": 47.52193482882217,
       "zoom": 14,
-      "date": "2026-05-21",
+      "date": "2026-06-03",
       "category": null,
       "image": "data/scenes/scene-03.jpg",
-      "provider": "eox-s2cloudless",
+      "provider": "planetary-computer",
       "enhanced": false,
       "bbox3857": [
         5283451,
@@ -74,12 +74,12 @@
         5296784,
         3424638
       ],
-      "satName": "Sentinel-2A",
-      "acquired": "2026-05-21",
-      "timeUTC": "07:40:17",
-      "cloudPct": 5.7,
+      "satName": "Sentinel-2B",
+      "acquired": "2026-06-03",
+      "timeUTC": "07:26:09",
+      "cloudPct": 3.9,
       "cloudLabel": "Clear sky",
-      "sceneId": "S2A_38RXW_20260521_2_L2A"
+      "sceneId": "S2B_MSIL2A_20260603T072609_R049_T38RQT_20260603T094314"
     },
     {
       "id": "T04",
@@ -88,10 +88,10 @@
       "lat": -7.314865361237087,
       "lon": 72.41965579850198,
       "zoom": 14,
-      "date": "2026-06-04",
+      "date": "2026-05-27",
       "category": null,
       "image": "data/scenes/scene-04.jpg",
-      "provider": "eox-s2cloudless",
+      "provider": "planetary-computer",
       "enhanced": false,
       "bbox3857": [
         8055053,
@@ -99,12 +99,12 @@
         8068386,
         -811508
       ],
-      "satName": "Sentinel-2B",
-      "acquired": "2026-06-04",
-      "timeUTC": "05:58:32",
-      "cloudPct": 41.7,
-      "cloudLabel": "Partly cloudy",
-      "sceneId": "S2B_43MBM_20260604_2_L2A"
+      "satName": "Sentinel-2A",
+      "acquired": "2026-05-27",
+      "timeUTC": "05:06:51",
+      "cloudPct": 17.4,
+      "cloudLabel": "Mostly clear",
+      "sceneId": "S2C_MSIL2A_20260527T050651_R019_T43MBN_20260527T100317"
     },
     {
       "id": "T05",
@@ -113,10 +113,10 @@
       "lat": 13.583061672569384,
       "lon": 144.9292478244587,
       "zoom": 14,
-      "date": "2026-05-15",
+      "date": "2026-06-03",
       "category": null,
       "image": "data/scenes/scene-05.jpg",
-      "provider": "eox-s2cloudless",
+      "provider": "planetary-computer",
       "enhanced": false,
       "bbox3857": [
         16126783,
@@ -125,11 +125,11 @@
         1531425
       ],
       "satName": "Sentinel-2B",
-      "acquired": "2026-05-15",
-      "timeUTC": "01:11:57",
-      "cloudPct": 16.7,
-      "cloudLabel": "Mostly clear",
-      "sceneId": "S2B_55PRC_20260515_1_L2A"
+      "acquired": "2026-06-03",
+      "timeUTC": "01:03:09",
+      "cloudPct": 6.7,
+      "cloudLabel": "Clear sky",
+      "sceneId": "S2B_MSIL2A_20260603T010309_R045_T55PBR_20260603T023838"
     },
     {
       "id": "T06",
@@ -138,10 +138,10 @@
       "lat": 52.362636071596775,
       "lon": 0.4863578559969946,
       "zoom": 14,
-      "date": "2026-05-19",
+      "date": "2026-06-03",
       "category": null,
       "image": "data/scenes/scene-06.jpg",
-      "provider": "eox-s2cloudless",
+      "provider": "planetary-computer",
       "enhanced": false,
       "bbox3857": [
         47474,
@@ -149,12 +149,12 @@
         60808,
         6870962
       ],
-      "satName": "Sentinel-2B",
-      "acquired": "2026-05-19",
-      "timeUTC": "10:28:07",
-      "cloudPct": 8.6,
-      "cloudLabel": "Clear sky",
-      "sceneId": "S2B_31UJZ_20260519_2_L2A"
+      "satName": "Sentinel-2A",
+      "acquired": "2026-06-03",
+      "timeUTC": "10:57:11",
+      "cloudPct": 99.9,
+      "cloudLabel": "Overcast",
+      "sceneId": "S2A_MSIL2A_20260603T105711_R094_T31UCU_20260603T173858"
     }
   ]
 }
