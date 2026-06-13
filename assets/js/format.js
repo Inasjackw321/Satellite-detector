@@ -45,12 +45,6 @@ export function formatDate(iso) {
   return d.toISOString().replace('T', ' ').slice(0, 16) + 'Z';
 }
 
-/** Date stamp for NASA GIBS layers (uses yesterday in UTC for full coverage). */
-export function gibsDate() {
-  const d = new Date(Date.now() - 24 * 3600 * 1000);
-  return d.toISOString().slice(0, 10);
-}
-
 export function clamp(n, lo, hi) {
   return Math.max(lo, Math.min(hi, n));
 }

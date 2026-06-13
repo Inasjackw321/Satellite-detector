@@ -33,7 +33,7 @@ const GRID_LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; // no I / O
  * @param {{id?:string,name?:string,lat:number,lon:number,date?:string}} loc
  */
 export function generateSceneMeta(loc) {
-  const seed = hashStr(`${loc.name || loc.id || ''}|${loc.lat.toFixed(3)}|${loc.lon.toFixed(3)}`);
+  const seed = hashStr(`${loc.id || loc.name || ''}|${loc.lat.toFixed(3)}|${loc.lon.toFixed(3)}`);
   const rng = mulberry32(seed);
 
   const isB = rng() < 0.5;

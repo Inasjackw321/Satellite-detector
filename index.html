@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#05080d" />
-  <meta name="description" content="WAVE2MAP — a feed of Sentinel-2 satellite scenes of disaster locations (NASA EONET) and showcase targets, each annotated with acquisition metadata." />
+  <meta name="description" content="WAVE2MAP — a feed of Sentinel-2 satellite scenes for a fixed set of tracked coordinates, each annotated with acquisition metadata." />
   <title>WAVE2MAP · Sentinel-2 Scene Feed</title>
 
   <link
@@ -13,8 +13,8 @@
     integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
     crossorigin=""
   />
-  <link rel="preconnect" href="https://eonet.gsfc.nasa.gov" />
   <link rel="preconnect" href="https://tiles.maps.eox.at" />
+  <link rel="preconnect" href="https://api.bigdatacloud.net" />
   <link rel="preconnect" href="https://basemaps.cartocdn.com" />
   <link rel="stylesheet" href="assets/css/styles.css" />
 </head>
@@ -34,8 +34,7 @@
 
     <div class="hdr__controls">
       <div class="seg" role="tablist" aria-label="Scene source">
-        <button class="seg__btn is-on" data-mode="live" role="tab">● LIVE DISASTERS</button>
-        <button class="seg__btn" data-mode="showcase" role="tab">SHOWCASE</button>
+        <button class="seg__btn is-on" data-mode="live" role="tab">● LIVE</button>
         <button class="seg__btn" data-mode="archive" role="tab" title="Imagery downloaded by the GitHub Action">ARCHIVE</button>
       </div>
       <div class="pill" id="status"><span class="pill__dot"></span><span id="status-label">DOWNLINK</span></div>
@@ -56,7 +55,6 @@
 
   <footer class="foot">
     <span>Imagery: <a href="https://s2maps.eu" target="_blank" rel="noopener">Sentinel-2 cloudless</a> (ESA Copernicus / EOX)</span>
-    <span>Events: <a href="https://eonet.gsfc.nasa.gov/" target="_blank" rel="noopener">NASA EONET</a></span>
     <span>Locator: © OpenStreetMap · CARTO</span>
   </footer>
 

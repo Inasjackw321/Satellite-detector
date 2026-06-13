@@ -2,25 +2,24 @@
 /**
  * WAVE2MAP — Sentinel-2 imagery downloader.
  *
- * Uses NASA EONET (natural-event tracker) to find current disaster locations,
- * then downloads a Sentinel-2 image for each area and writes:
+ * Downloads a Sentinel-2 image for each tracked coordinate (assets/js/targets.js)
+ * and writes:
  *   data/scenes/scene-NN.jpg   (the imagery)
  *   data/scenes.json           (manifest the website reads in ARCHIVE mode)
  *
  * Imagery providers:
- *   - default: EOX "Sentinel-2 cloudless" WMS (key-less, no account needed)
+ *   - default: EOX "Sentinel-2 cloudless" WMTS tiles, stitched (key-less)
  *   - optional: Sentinel Hub Process API for fresh, date-filtered S2 L2A
  *     (enabled automatically when SH_CLIENT_ID / SH_CLIENT_SECRET are set)
  *
- * Tunable via env: LIMIT, DAYS, WIDTH, HEIGHT, EOX_LAYER, SH_CLIENT_ID,
+ * Tunable via env: LIMIT, WIDTH, HEIGHT, EOX_LAYER, SH_CLIENT_ID,
  * SH_CLIENT_SECRET. Designed to run in GitHub Actions (runners have internet).
  */
 import { writeFile, mkdir, rm } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { generateSceneMeta, cloudLabel } from '../assets/js/meta.js';
-import { SHOWCASE_CITIES } from '../assets/js/scenes.js';
-import { categoryMeta } from '../assets/js/config.js';
+import { TARGETS } from '../assets/js/targets.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
@@ -29,7 +28,6 @@ const MANIFEST = join(ROOT, 'data', 'scenes.json');
 
 const env = process.env;
 const LIMIT = clampInt(env.LIMIT, 12, 1, 40);
-const DAYS = clampInt(env.DAYS, 30, 1, 365);
 const WIDTH = clampInt(env.WIDTH, 1024, 256, 2048);
 const HEIGHT = clampInt(env.HEIGHT, 768, 256, 2048);
 const EOX_LAYER = env.EOX_LAYER || 's2cloudless-2020_3857';
@@ -158,56 +156,6 @@ async function fetchEOXStitched(lat, lon, spanKm) {
     .toBuffer();
 }
 
-/* -------------------------------- EONET --------------------------------- */
-function cleanName(t) {
-  const p = String(t).split(/\s[—–-]\s/);
-  return (p[p.length - 1] || t).trim();
-}
-
-async function fetchEonet() {
-  const url = `https://eonet.gsfc.nasa.gov/api/v3/events?status=open&days=${DAYS}&limit=200`;
-  const res = await timedFetch(url, 15000);
-  if (!res.ok) throw new Error('EONET ' + res.status);
-  const data = await res.json();
-  const out = [];
-  for (const ev of data.events || []) {
-    const g = (ev.geometry || [])
-      .slice()
-      .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
-    if (!g) continue;
-    let lon;
-    let lat;
-    if (g.type === 'Point') {
-      [lon, lat] = g.coordinates;
-    } else if (g.type === 'Polygon') {
-      const ring = g.coordinates[0] || [];
-      if (!ring.length) continue;
-      let sx = 0;
-      let sy = 0;
-      for (const [x, y] of ring) {
-        sx += x;
-        sy += y;
-      }
-      lon = sx / ring.length;
-      lat = sy / ring.length;
-    } else continue;
-    if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
-
-    const cat = ev.categories?.[0] || { id: 'unknown', title: 'Event' };
-    const m = categoryMeta(cat.id);
-    out.push({
-      id: ev.id,
-      name: cleanName(ev.title),
-      lat,
-      lon,
-      date: g.date,
-      zoom: Math.min(13, Math.max(10, m.zoom)),
-      category: { id: cat.id, title: cat.title, color: m.color, icon: m.icon },
-    });
-  }
-  return out;
-}
-
 /* ---------------------------- reverse geocode --------------------------- */
 async function geocode(lat, lon) {
   try {
@@ -282,28 +230,20 @@ async function fetchSentinelHub(token, bb, fromISO, toISO) {
 
 /* --------------------------------- main --------------------------------- */
 async function main() {
-  console.log(`WAVE2MAP imagery fetch · limit=${LIMIT} days=${DAYS} size=${WIDTH}x${HEIGHT}`);
+  console.log(`WAVE2MAP imagery fetch · limit=${LIMIT} size=${WIDTH}x${HEIGHT}`);
 
-  let locations = [];
-  let source = 'eonet';
-  try {
-    locations = await fetchEonet();
-    if (!locations.length) throw new Error('no open events');
-    console.log(`NASA EONET: ${locations.length} disaster locations`);
-  } catch (e) {
-    console.warn(`EONET unavailable (${e.message}) — using showcase locations`);
-    source = 'showcase';
-    locations = SHOWCASE_CITIES.map((c) => ({
-      id: slug(c.name),
-      name: c.name,
-      country: c.country,
-      lat: c.lat,
-      lon: c.lon,
-      zoom: c.zoom || 12,
-      date: null,
-      category: null,
-    }));
-  }
+  const source = 'targets';
+  let locations = TARGETS.map((t, i) => ({
+    id: t.id,
+    name: `TARGET ${String(i + 1).padStart(2, '0')}`,
+    country: null,
+    lat: t.lat,
+    lon: t.lon,
+    zoom: t.zoom || 14,
+    date: null,
+    category: null,
+  }));
+  console.log(`Tracking ${locations.length} fixed targets`);
   locations = locations.slice(0, LIMIT);
 
   let provider = SH_ID && SH_SECRET ? 'sentinel-hub' : 'eox-s2cloudless';
@@ -370,7 +310,7 @@ async function main() {
     }
     await writeFile(join(OUT_DIR, file), buf);
 
-    // Enrich place / country for disaster points that lack them.
+    // Resolve a place / country label for the target coordinate.
     let name = loc.name;
     let country = loc.country || null;
     if (!country) {
@@ -379,14 +319,14 @@ async function main() {
       if (g.place) name = g.place;
     }
 
-    const meta = generateSceneMeta({ name, lat: loc.lat, lon: loc.lon, date: loc.date });
+    const meta = generateSceneMeta({ id: loc.id, name, lat: loc.lat, lon: loc.lon, date: loc.date });
     scenes.push({
       id: loc.id,
       name,
       country: country || null,
       lat: loc.lat,
       lon: loc.lon,
-      zoom: loc.zoom || 12,
+      zoom: loc.zoom || 14,
       date: loc.date || meta.ymd,
       category: loc.category,
       image: `data/scenes/${file}`,
@@ -423,10 +363,6 @@ async function main() {
     console.error('No imagery downloaded — leaving manifest empty.');
     process.exitCode = 1;
   }
-}
-
-function slug(s) {
-  return String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 }
 
 main().catch((e) => {

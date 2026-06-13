@@ -7,12 +7,8 @@ on:
   workflow_dispatch:
     inputs:
       limit:
-        description: "Number of locations to image"
+        description: "Max number of targets to image"
         default: "12"
-        required: false
-      days:
-        description: "EONET look-back window (days)"
-        default: "30"
         required: false
       width:
         description: "Image width (px)"
@@ -47,10 +43,9 @@ jobs:
       - name: Install dependencies (sharp)
         run: npm install --no-audit --no-fund
 
-      - name: Download Sentinel-2 imagery (NASA EONET locations)
+      - name: Download Sentinel-2 imagery (tracked targets)
         env:
           LIMIT: ${{ github.event.inputs.limit || '12' }}
-          DAYS: ${{ github.event.inputs.days || '30' }}
           WIDTH: ${{ github.event.inputs.width || '1024' }}
           HEIGHT: ${{ github.event.inputs.height || '768' }}
           # Optional: set these repo secrets to fetch fresh Sentinel-2 L2A

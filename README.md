@@ -1,18 +1,20 @@
 # ◉ WAVE2MAP — Sentinel-2 Scene Feed
 
 A static, zero-backend **GitHub Pages** web app that renders a vertical feed of
-full-bleed **Sentinel-2** satellite scenes. Each scene is annotated with a clean
-metadata panel — location, satellite, acquisition date/time (UTC), cloud cover,
-coordinates, an MGRS-style scene ID, and a dark regional locator map.
+full-bleed **Sentinel-2** satellite scenes for a **fixed set of tracked
+coordinates**. Each scene is annotated with a clean metadata panel — location,
+satellite, acquisition date/time (UTC), cloud cover, coordinates, an MGRS-style
+scene ID, and a dark regional locator map.
 
-Two sources feed the list:
+Two views of the same tracked targets:
 
-- **● Live Disasters** — locations pulled from the **NASA EONET** natural-event
-  tracker (wildfires, volcanoes, storms, floods, …), reverse-geocoded for the
-  place / country fields.
-- **Showcase** — a curated set of visually striking targets (Havana, Venice,
-  Dubai, Cape Town, the Grand Canyon …). This is also the automatic fallback if
-  the live feed is unreachable, so the page always looks right.
+- **● Live** — live Sentinel-2 imagery tiles, centred on each tracked coordinate,
+  reverse-geocoded for the place / country fields.
+- **Archive** — real Sentinel-2 imagery **downloaded by a GitHub Action** and
+  committed to the repo (see below).
+
+The tracked coordinates live in **`assets/js/targets.js`** — edit that one file
+to change what the site (and the downloader) tracks.
 
 Everything runs in the visitor's browser using **public, key-less** services.
 
@@ -22,8 +24,8 @@ Everything runs in the visitor's browser using **public, key-less** services.
 
 | Field | Source |
 |---|---|
+| Tracked coordinates | `assets/js/targets.js` (hand-edited) |
 | Satellite imagery (the scene) | [Sentinel-2 cloudless](https://s2maps.eu) WMTS by EOX (ESA Copernicus) |
-| Disaster locations | [NASA EONET v3](https://eonet.gsfc.nasa.gov/) events API |
 | Place / country | [BigDataCloud](https://www.bigdatacloud.com/) reverse-geocode (client, key-less) |
 | Locator inset map | [CARTO](https://carto.com/) dark basemap (© OpenStreetMap) |
 | Mapping engine | [Leaflet](https://leafletjs.com) |
@@ -32,43 +34,53 @@ No API keys, no build step, no server.
 
 ### A note on the scene metadata
 
-EONET tells us *where* and *when* a disaster is, but not the full Sentinel-2
-acquisition record. The **satellite (A/B), exact UTC pass time, cloud-cover %
-and MGRS scene ID** are generated deterministically per location (seeded from its
-name + coordinates) so they're stable and plausible — the UTM zone / latitude
-band in the scene ID are computed for real (e.g. Havana → `17Q…`). Coordinates,
-location and the imagery itself are genuine.
+A target is just a coordinate, so the **satellite (A/B), exact UTC pass time,
+cloud-cover % and MGRS scene ID** are generated deterministically per target
+(seeded from its id + coordinates) so they're stable and plausible — the UTM zone
+/ latitude band in the scene ID are computed for real (e.g. a Qatar target →
+`39R…`). Coordinates, place names and the imagery itself are genuine.
 
 ## Features
 
 - 🛰️ Full-bleed live **Sentinel-2** imagery per scene, centred on the target.
 - 🧾 WAVE2MAP metadata panel: location, acquisition block, cloud-cover bar,
   decimal-degree coordinates, scene ID, and a live dark **locator inset**.
-- 🔀 **Live Disasters / Showcase / Archive** toggle, with graceful offline fallback + banner.
-- ⬇️ **Archive** = real Sentinel-2 imagery **downloaded by a GitHub Action** and committed to the repo (see below).
-- 🌍 Reverse-geocoded country & place names for live disaster scenes.
+- 🔀 **Live / Archive** toggle.
+- 🌍 Reverse-geocoded country & place names for each tracked coordinate.
 - ⚡ Lazy-mounted maps (IntersectionObserver) + "load more" paging for performance.
-- 🕒 UTC mission clock, downlink status pill, deep links to Sentinel Hub EO Browser.
+- 🕒 UTC mission clock, status pill, deep links to Sentinel Hub EO Browser.
 - 📱 Responsive (panel reflows below the image on small screens); respects
   `prefers-reduced-motion`.
 
+## Changing the tracked targets
+
+Edit `assets/js/targets.js`:
+
+```js
+export const TARGETS = [
+  { id: 'T01', lat: 25.124279, lon: 51.315937, zoom: 14 },
+  // … add / remove / edit coordinates here …
+];
+```
+
+Both the website and the imagery downloader read this same list.
+
 ## Download imagery with a GitHub Action
 
-The workflow **`.github/workflows/fetch-imagery.yml`** uses NASA data to pull
-real Sentinel-2 imagery into the repo:
+The workflow **`.github/workflows/fetch-imagery.yml`** downloads real Sentinel-2
+imagery for every tracked coordinate into the repo:
 
-1. Queries **NASA EONET** for current open disaster locations (falls back to the
-   showcase set if EONET is unreachable).
-2. For each location, downloads a Sentinel-2 image (`scripts/fetch-imagery.mjs`).
+1. Reads the targets from `assets/js/targets.js`.
+2. For each, downloads a Sentinel-2 image (`scripts/fetch-imagery.mjs`).
 3. Reverse-geocodes the place / country, generates the scene metadata, and writes:
    - `data/scenes/scene-NN.jpg` — the imagery
    - `data/scenes.json` — a manifest the site reads in **Archive** mode
 4. Commits and pushes the result.
 
 **Run it:** GitHub → **Actions → Fetch Sentinel-2 Imagery → Run workflow**
-(optionally set `limit`, `days`, `width`, `height`). It also runs daily at
-06:00 UTC. After it finishes, open the site and pick **ARCHIVE** to view the
-downloaded scenes.
+(optionally set `limit`, `width`, `height`). It also runs daily at 06:00 UTC.
+After it finishes, open the site and pick **ARCHIVE** to view the downloaded
+scenes.
 
 Try it locally first:
 
@@ -88,7 +100,7 @@ DRY_RUN=1 npm run fetch:imagery     # preview the tile plan (no network writes, 
 To enable fresh Sentinel Hub imagery, add repo secrets **`SH_CLIENT_ID`** and
 **`SH_CLIENT_SECRET`** (free Copernicus Data Space / Sentinel Hub OAuth client).
 With no secrets, the Action uses the key-less EOX cloudless mosaic. Either way it
-re-images the *current* disaster locations on each run.
+re-images the tracked coordinates on each run.
 
 > **Note on git size:** each run overwrites the same `scene-NN.jpg` paths so the
 > working tree stays bounded, but binary blobs still accumulate in history. For
@@ -122,15 +134,14 @@ index.html                 # app shell (header + scene feed)
 .nojekyll
 assets/css/styles.css      # WAVE2MAP theme
 assets/js/
-  config.js                # endpoints, basemaps, locator, category metadata
+  targets.js               # the fixed list of tracked coordinates
+  config.js                # imagery basemaps + locator config
   format.js                # coordinate (DMS / decimal), UTM/MGRS, time helpers
-  api.js                   # NASA EONET fetch + normalisation
-  scenes.js                # curated showcase targets (+ offline fallback)
   meta.js                  # deterministic Sentinel-2 scene metadata generator
   geocode.js               # key-less reverse geocoding (place / country)
   cards.js                 # WAVE2MAP scene card: imagery + panel + locator
   app.js                   # state, modes, paging, bootstrap
-scripts/fetch-imagery.mjs  # NASA EONET → Sentinel-2 image downloader (Node)
+scripts/fetch-imagery.mjs  # Sentinel-2 image downloader for the targets (Node)
 data/scenes.json           # manifest written by the Action (Archive mode reads it)
 data/scenes/               # downloaded scene-NN.jpg images
 .github/workflows/
@@ -142,8 +153,6 @@ data/scenes/               # downloaded scene-NN.jpg images
 
 - Sentinel-2 imagery © ESA Copernicus, mosaic by
   [EOX IT Services GmbH](https://maps.eox.at).
-- Disaster data © **NASA EONET** / Earth Observatory.
 - Reverse geocoding © **BigDataCloud**. Locator tiles © OpenStreetMap, © CARTO.
 
-Educational / situational-awareness visualisation — not an authoritative
-emergency source. The WAVE2MAP styling is an homage to satellite-scene browsers.
+The WAVE2MAP styling is an homage to satellite-scene browsers.

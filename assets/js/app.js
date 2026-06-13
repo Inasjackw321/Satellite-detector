@@ -1,15 +1,15 @@
 /**
- * ORBITAL / WAVE2MAP — application bootstrap.
- * Builds a vertical list of full-bleed Sentinel-2 scene cards, sourced either
- * from live NASA EONET disaster locations or a curated showcase set.
+ * WAVE2MAP — application bootstrap.
+ * Renders a vertical list of full-bleed Sentinel-2 scene cards for a fixed set
+ * of tracked coordinates. LIVE shows live imagery tiles; ARCHIVE shows imagery
+ * downloaded by the "Fetch Sentinel-2 Imagery" GitHub Action.
  */
-import { fetchEvents } from './api.js';
 import { buildSceneCard, observeCard, resetObserver } from './cards.js';
-import { SHOWCASE_CITIES } from './scenes.js';
-import { categoryMeta, SCENE_PAGE } from './config.js';
+import { TARGETS } from './targets.js';
+import { SCENE_PAGE } from './config.js';
 
 const state = {
-  mode: 'live',     // 'live' | 'showcase'
+  mode: 'live', // 'live' | 'archive'
   locations: [],
   shown: 0,
 };
@@ -17,39 +17,16 @@ const state = {
 const $ = (id) => document.getElementById(id);
 
 /* ------------------------------ adapters ------------------------------- */
-function cleanName(title) {
-  const parts = String(title).split(/\s[—–-]\s/);
-  return (parts[parts.length - 1] || title).trim();
-}
-
-function eventsToLocations(events) {
-  return events.map((ev) => {
-    const m = categoryMeta(ev.categoryId);
-    return {
-      id: ev.id,
-      name: cleanName(ev.title),
-      lat: ev.lat,
-      lon: ev.lon,
-      zoom: Math.min(13, Math.max(10, m.zoom)),
-      country: null,
-      date: ev.date,
-      category: { id: ev.categoryId, title: ev.categoryTitle, color: m.color, icon: m.icon },
-      needsGeocode: true,
-      useGeoName: true,
-    };
-  });
-}
-
-function citiesToLocations() {
-  return SHOWCASE_CITIES.map((c) => ({
-    id: c.name,
-    name: c.name,
-    lat: c.lat,
-    lon: c.lon,
-    zoom: c.zoom || 12,
-    country: c.country,
-    needsGeocode: false,
-    useGeoName: false,
+function targetsToLocations() {
+  return TARGETS.map((t, i) => ({
+    id: t.id,
+    name: `TARGET ${String(i + 1).padStart(2, '0')}`,
+    lat: t.lat,
+    lon: t.lon,
+    zoom: t.zoom || 14,
+    country: null,
+    needsGeocode: true, // resolve place / country
+    useGeoName: true,
   }));
 }
 
@@ -59,13 +36,21 @@ function manifestToLocations(manifest) {
     name: s.name,
     lat: s.lat,
     lon: s.lon,
-    zoom: s.zoom || 12,
+    zoom: s.zoom || 14,
     country: s.country,
     date: s.date,
     category: s.category,
     image: s.image, // downloaded JPEG
     needsGeocode: false,
     useGeoName: false,
+    // use the exact metadata the downloader recorded
+    meta: {
+      satName: s.satName,
+      ymd: s.acquired || s.date,
+      timeUTC: s.timeUTC,
+      cloudPct: s.cloudPct,
+      sceneId: s.sceneId,
+    },
   }));
 }
 
@@ -80,7 +65,7 @@ function appendPage() {
   }
   state.shown += next.length;
   $('load-more').hidden = state.shown >= state.locations.length;
-  $('count').textContent = `${state.locations.length} scenes`;
+  $('count').textContent = `${state.locations.length} targets`;
 }
 
 function renderFresh(locations) {
@@ -92,6 +77,7 @@ function renderFresh(locations) {
   if (!locations.length) {
     feed.innerHTML = `<p class="empty">No scenes to display.</p>`;
     $('load-more').hidden = true;
+    $('count').textContent = '0 targets';
     return;
   }
   appendPage();
@@ -110,16 +96,7 @@ function setBanner(msg) {
 /* -------------------------------- load --------------------------------- */
 async function load() {
   const b = boot();
-  b.step('Establishing downlink…');
-
-  if (state.mode === 'showcase') {
-    setBanner('');
-    setStatus(true, 'SHOWCASE');
-    b.step('Compositing Sentinel-2 scenes…');
-    renderFresh(citiesToLocations());
-    b.done();
-    return;
-  }
+  b.step('Acquiring targets…');
 
   if (state.mode === 'archive') {
     b.step('Loading downloaded imagery…');
@@ -140,20 +117,11 @@ async function load() {
     return;
   }
 
-  // live mode
-  b.step('Querying NASA EONET…');
-  const { events, live } = await fetchEvents({ days: 30, limit: 120 });
+  // live mode — live Sentinel-2 tiles for the tracked targets
+  setBanner('');
+  setStatus(true, 'LIVE · TRACKED TARGETS');
   b.step('Compositing Sentinel-2 scenes…');
-
-  if (live) {
-    setBanner('');
-    setStatus(true, 'LIVE · NASA EONET');
-    renderFresh(eventsToLocations(events));
-  } else {
-    setBanner('Live disaster feed unreachable — showing showcase scenes. Toggle to retry.');
-    setStatus(false, 'OFFLINE · SHOWCASE');
-    renderFresh(citiesToLocations());
-  }
+  renderFresh(targetsToLocations());
   b.done();
 }
 

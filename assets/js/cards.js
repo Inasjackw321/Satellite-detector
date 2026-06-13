@@ -114,7 +114,7 @@ function panel(loc, meta) {
 }
 
 export function buildSceneCard(loc) {
-  const meta = generateSceneMeta(loc);
+  const meta = loc.meta || generateSceneMeta(loc);
   const el = document.createElement('article');
   el.className = 'scene';
   el.innerHTML = `
@@ -148,7 +148,7 @@ function mount(card) {
     console.warn('[WAVE2MAP] scene mount failed', err);
   }
 
-  // Resolve country / nicer place name for live (disaster) locations.
+  // Resolve country / nicer place name for tracked targets.
   if (loc.needsGeocode) {
     reverseGeocode(loc.lat, loc.lon).then(({ place, country }) => {
       if (country) {
