@@ -14,52 +14,83 @@ let observer;
 const built = new WeakSet();
 
 /* --------------------------- leaflet builders --------------------------- */
-const STATIC_OPTS = {
+const RMERC = 6378137;
+const merc2lon = (x) => (x / RMERC) * 180 / Math.PI;
+const merc2lat = (y) => (2 * Math.atan(Math.exp(y / RMERC)) - Math.PI / 2) * 180 / Math.PI;
+
+// Interactive options shared by the main scene viewers (zoom via +/- buttons;
+// scroll-wheel left off so the page still scrolls over a card).
+const VIEW_OPTS = {
   zoomControl: false,
   attributionControl: false,
-  dragging: false,
+  dragging: true,
   scrollWheelZoom: false,
-  doubleClickZoom: false,
+  doubleClickZoom: true,
   boxZoom: false,
   keyboard: false,
-  touchZoom: false,
-  zoomSnap: 0.25,
+  touchZoom: true,
+  zoomSnap: 0.5,
 };
+const STATIC_OPTS = { ...VIEW_OPTS, dragging: false, doubleClickZoom: false, touchZoom: false };
 
+const redMarker = (lat, lon, r = 5) =>
+  L.circleMarker([lat, lon], { radius: r, color: '#ff3b3b', weight: 2, fillColor: '#ff3b3b', fillOpacity: 0.85 });
+
+/** Live, zoomable Sentinel-2 tile map. */
 function buildImage(container, loc) {
-  const map = L.map(container, STATIC_OPTS).setView([loc.lat, loc.lon], loc.zoom || 12);
-  L.tileLayer(BASEMAPS.s2.url, {
-    maxZoom: 18,
-    maxNativeZoom: BASEMAPS.s2.maxZoom,
-    crossOrigin: true,
-  }).addTo(map);
-  L.circleMarker([loc.lat, loc.lon], {
-    radius: 5,
-    color: '#ff3b3b',
-    weight: 2,
-    fillColor: '#ff3b3b',
-    fillOpacity: 0.85,
-  }).addTo(map);
+  const map = L.map(container, { ...VIEW_OPTS, minZoom: 3, maxZoom: 18 }).setView([loc.lat, loc.lon], loc.zoom || 14);
+  L.control.zoom({ position: 'bottomleft' }).addTo(map);
+  L.tileLayer(BASEMAPS.s2.url, { maxZoom: 19, maxNativeZoom: BASEMAPS.s2.maxZoom, crossOrigin: true }).addTo(map);
+  redMarker(loc.lat, loc.lon).addTo(map);
   setTimeout(() => map.invalidateSize(), 60);
+  return map;
+}
+
+/** Zoomable viewer for a downloaded scene, geolocated via its bbox. */
+function buildArchiveViewer(container, loc) {
+  const [minX, minY, maxX, maxY] = loc.bbox3857;
+  const bounds = [
+    [merc2lat(minY), merc2lon(minX)],
+    [merc2lat(maxY), merc2lon(maxX)],
+  ];
+  const map = L.map(container, { ...VIEW_OPTS, maxZoom: 22, maxBounds: bounds, maxBoundsViscosity: 0.85 });
+  map.fitBounds(bounds, { animate: false }); // set a view before adding layers
+  L.control.zoom({ position: 'bottomleft' }).addTo(map);
+  L.imageOverlay(loc.image, bounds, { className: 'scene__overlay' }).addTo(map);
+  redMarker(loc.lat, loc.lon).addTo(map);
+  setTimeout(() => {
+    map.invalidateSize();
+    map.fitBounds(bounds, { animate: false });
+    map.setMinZoom(map.getZoom()); // can't zoom out past the full frame
+  }, 80);
   return map;
 }
 
 function buildLocator(container, loc) {
   const map = L.map(container, STATIC_OPTS).setView([loc.lat, loc.lon], LOCATOR.zoom);
-  L.tileLayer(LOCATOR.url, {
-    subdomains: LOCATOR.subdomains,
-    maxZoom: LOCATOR.maxZoom,
-    crossOrigin: true,
-  }).addTo(map);
-  L.circleMarker([loc.lat, loc.lon], {
-    radius: 6,
-    color: '#ffffff',
-    weight: 2,
-    fillColor: '#ff3b3b',
-    fillOpacity: 1,
-  }).addTo(map);
+  L.tileLayer(LOCATOR.url, { subdomains: LOCATOR.subdomains, maxZoom: LOCATOR.maxZoom, crossOrigin: true }).addTo(map);
+  L.circleMarker([loc.lat, loc.lon], { radius: 6, color: '#fff', weight: 2, fillColor: '#ff3b3b', fillOpacity: 1 }).addTo(map);
   setTimeout(() => map.invalidateSize(), 60);
   return map;
+}
+
+/** Download the scene image as a file. */
+async function downloadImage(loc) {
+  const base = `${(loc.name || 'scene').replace(/[^\w.-]+/g, '_')}_${loc.date || loc.id || ''}`.replace(/_+$/, '');
+  try {
+    const res = await fetch(loc.image, { cache: 'no-store' });
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${base}.jpg`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  } catch (e) {
+    window.open(loc.image, '_blank', 'noopener');
+  }
 }
 
 /* ------------------------------- markup -------------------------------- */
@@ -119,10 +150,18 @@ export function buildSceneCard(loc) {
   el.innerHTML = `
     <div class="scene__img" data-img></div>
     <span class="scene__pin" aria-hidden="true"></span>
+    ${loc.image ? `<div class="scene__tools"><button class="scene__btn" data-download type="button" title="Download image">⤓ DOWNLOAD</button></div>` : ''}
     <div class="scene__scrim"></div>
     <aside class="scene__panel">${panel(loc, meta)}</aside>
     <div class="scene__wm">WARSUMMARY</div>`;
   el._loc = loc;
+  const dl = el.querySelector('[data-download]');
+  if (dl) {
+    dl.addEventListener('click', (e) => {
+      e.stopPropagation();
+      downloadImage(loc);
+    });
+  }
   return el;
 }
 
@@ -132,14 +171,18 @@ function mount(card) {
   built.add(card);
   const loc = card._loc;
   try {
-    if (loc.image) {
-      // Downloaded (ARCHIVE) scene — show the static JPEG, no live tiles.
-      const img = card.querySelector('[data-img]');
-      img.classList.add('scene__img--static');
-      img.style.backgroundImage = `url("${loc.image}")`;
+    const imgEl = card.querySelector('[data-img]');
+    if (loc.image && Array.isArray(loc.bbox3857) && loc.bbox3857.length === 4) {
+      // Downloaded scene — zoomable viewer geolocated by its bbox.
+      buildArchiveViewer(imgEl, loc);
+    } else if (loc.image) {
+      // Downloaded scene without a bbox — static background.
+      imgEl.classList.add('scene__img--static');
+      imgEl.style.backgroundImage = `url("${loc.image}")`;
       card.classList.add('is-static');
     } else {
-      buildImage(card.querySelector('[data-img]'), loc);
+      // Live, zoomable Sentinel-2 tiles.
+      buildImage(imgEl, loc);
     }
     buildLocator(card.querySelector('[data-locator]'), loc);
     card.classList.add('is-loaded');

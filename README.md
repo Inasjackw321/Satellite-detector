@@ -23,25 +23,29 @@ to change what the site (and the downloader) tracks.
 | Field | Source |
 |---|---|
 | Tracked coordinates | `assets/js/targets.js` (hand-edited) |
-| Latest imagery (Archive) | **Sentinel Hub / Copernicus Data Space** — most-recent S2 L2A, any cloud cover |
+| Latest imagery (Archive, **key-less**) | **Microsoft Planetary Computer** — most-recent S2 L2A, any cloud cover |
+| Latest imagery (optional, higher quality) | **Sentinel Hub / Copernicus Data Space** (add free secrets) |
 | Fallback imagery | [Sentinel-2 cloudless](https://s2maps.eu) WMTS by EOX (key-less mosaic) |
 | AI enhancement | [UpscalerJS](https://upscalerjs.com) (ESRGAN, TensorFlow.js) — free, local |
 | Place / country | [BigDataCloud](https://www.bigdatacloud.com/) reverse-geocode (key-less) |
 | Locator inset map | [CARTO](https://carto.com/) dark basemap (© OpenStreetMap) |
 | Mapping engine | [Leaflet](https://leafletjs.com) |
 
-The website itself needs no API keys. The downloader uses free Copernicus Data
-Space credentials for "latest" imagery (see below).
+The whole pipeline runs with **no API keys** — recent imagery comes from the
+key-less Planetary Computer. (Adding Copernicus credentials is optional and just
+improves quality; see below.)
 
 ## Features
 
 - 🛰️ Full-bleed **Sentinel-2** imagery per scene, centred on the target.
-- 🆕 **Archive** fetches the **latest** acquisition regardless of cloud cover,
-  with the **real** date / cloud-cover / scene-id from the Copernicus catalog.
+- 🆕 **Latest acquisition, any cloud cover** — key-less via Planetary Computer,
+  with the **real** date / cloud-cover / scene-id.
+- 🔍 **Zoom in / out** on every scene (pan + zoom controls).
+- ⤓ **Download** button on each scene to save the image.
 - 🤖 Each downloaded image is run through a **free AI enhancer** (ESRGAN).
 - 🧾 Metadata panel: location, acquisition block, cloud-cover bar, decimal-degree
   coordinates, scene ID, and a live dark **locator inset**.
-- 🔀 **Live / Archive** toggle.
+- 🔀 **Archive / Live** toggle.
 - 🌍 Reverse-geocoded country & place names for each tracked coordinate.
 - ⚡ Lazy-mounted maps (IntersectionObserver) + "load more" paging.
 - 📱 Responsive; respects `prefers-reduced-motion`.
@@ -66,8 +70,9 @@ tracked coordinate into the repo:
 
 1. Reads the targets from `assets/js/targets.js`.
 2. For each, fetches the **latest** Sentinel-2 L2A scene — **any cloud cover** —
-   (`scripts/fetch-imagery.mjs`), using the real acquisition date/cloud/scene-id
-   from the Copernicus catalog.
+   (`scripts/fetch-imagery.mjs`). By default it uses the **key-less Microsoft
+   Planetary Computer** (STAC search for the most recent scene + its rendered
+   tiles), with the real acquisition date / cloud-cover / scene-id.
 3. Runs the image through the **free AI enhancer** (`scripts/enhance.mjs`).
 4. Reverse-geocodes the place / country and writes:
    - `data/scenes/scene-NN.jpg` — the imagery
@@ -75,19 +80,15 @@ tracked coordinate into the repo:
 5. Commits and pushes the result.
 
 **Run it:** GitHub → **Actions → Fetch Sentinel-2 Imagery → Run workflow**.
-It also runs daily at 06:00 UTC. Then open the site and pick **ARCHIVE**.
+It also runs daily at 06:00 UTC. Then open the site (Archive is the default tab).
 
-### Enabling "latest, any cloud" imagery (free)
+### Provider order
 
-To fetch the latest dated imagery you need free **Copernicus Data Space
-Ecosystem** OAuth credentials:
-
-1. Create a free account at <https://dataspace.copernicus.eu/>.
-2. Create an OAuth client (Sentinel Hub → User settings → OAuth clients).
-3. Add them as repo secrets **`SH_CLIENT_ID`** and **`SH_CLIENT_SECRET`**.
-
-Without these secrets the Action falls back to the key-less EOX **cloudless
-mosaic** (which is a fixed composite, not "latest").
+1. **Microsoft Planetary Computer** — key-less, recent, any cloud (**default**).
+2. **Sentinel Hub / Copernicus Data Space** — used if you add the optional free
+   secrets **`SH_CLIENT_ID`** / **`SH_CLIENT_SECRET`** (account at
+   <https://dataspace.copernicus.eu/> → OAuth client). Slightly higher quality.
+3. **EOX Sentinel-2 cloudless** mosaic — final key-less fallback (not "latest").
 
 ### AI enhancement
 

@@ -8,12 +8,14 @@
  *   data/scenes/scene-NN.jpg   (the imagery)
  *   data/scenes.json           (manifest the website reads in ARCHIVE mode)
  *
- * Imagery providers:
- *   - preferred: Sentinel Hub / Copernicus Data Space (free) — most-recent L2A,
- *     maxCloudCoverage 100, with the real acquisition date/cloud/scene-id from
- *     the catalog. Enabled when SH_CLIENT_ID / SH_CLIENT_SECRET are set.
- *   - fallback: EOX "Sentinel-2 cloudless" WMTS tiles, stitched (key-less, but a
- *     fixed cloud-free mosaic — not "latest").
+ * Imagery providers (in order):
+ *   - Sentinel Hub / Copernicus Data Space — most-recent L2A, maxCloudCoverage
+ *     100, real acquisition date/cloud/scene-id. Used when SH_CLIENT_ID /
+ *     SH_CLIENT_SECRET are set.
+ *   - Microsoft Planetary Computer (KEY-LESS, default) — STAC search for the
+ *     most recent Sentinel-2 L2A scene (any cloud) + its rendered "visual"
+ *     tiles, with the real acquisition date/cloud/scene-id.
+ *   - EOX "Sentinel-2 cloudless" WMTS (key-less fallback; a fixed mosaic).
  *
  * AI enhancement: UpscalerJS (ESRGAN, TensorFlow.js) via scripts/enhance.mjs —
  * best-effort, disable with AI_ENHANCE=0.
@@ -101,11 +103,11 @@ function eoxTileUrl(z, x, y) {
 }
 
 /** Pick the zoom whose pixel resolution best fits the bbox into WIDTH px. */
-function pickZoom(bb) {
+function pickZoom(bb, maxZoom) {
   const widthM = bb[2] - bb[0];
   const resTarget = widthM / WIDTH;
   const z = Math.round(Math.log2((2 * WORLD) / (256 * resTarget)));
-  return Math.max(2, Math.min(EOX_MAX_Z, z));
+  return Math.max(2, Math.min(maxZoom, z));
 }
 
 /** Global pixel coords (at zoom z) of a projected bbox. */
@@ -120,8 +122,8 @@ function bboxToPx(bb, z) {
 }
 
 /** Plan the tile grid covering a bbox at the chosen zoom. */
-function tilePlan(bb) {
-  const z = pickZoom(bb);
+function tilePlan(bb, maxZoom = EOX_MAX_Z) {
+  const z = pickZoom(bb, maxZoom);
   const { px0, px1, py0, py1 } = bboxToPx(bb, z);
   const n = Math.pow(2, z);
   const tx0 = Math.floor(px0 / 256);
@@ -132,17 +134,25 @@ function tilePlan(bb) {
     tilesX: tx1 - tx0 + 1, tilesY: ty1 - ty0 + 1 };
 }
 
-async function fetchEOXStitched(lat, lon, spanKm) {
+/**
+ * Download an XYZ (Web Mercator) tile set covering a projected bbox and stitch
+ * it into a framed JPEG. `tileUrlFn(z, x, y)` returns each tile URL.
+ */
+async function stitchTiles(bb, tileUrlFn, maxZoom) {
   const sharp = (await import('sharp')).default;
-  const bb = bbox3857(lat, lon, spanKm);
-  const p = tilePlan(bb);
-  if (p.tilesX * p.tilesY > 90) throw new Error(`too many tiles (${p.tilesX * p.tilesY})`);
+  const p = tilePlan(bb, maxZoom);
+  if (p.tilesX * p.tilesY > 140) throw new Error(`too many tiles (${p.tilesX * p.tilesY})`);
 
   const composites = [];
   for (let ty = p.ty0; ty <= p.ty1; ty++) {
     for (let tx = p.tx0; tx <= p.tx1; tx++) {
       const X = ((tx % p.n) + p.n) % p.n; // wrap longitude
-      const res = await timedFetch(eoxTileUrl(p.z, X, ty), 20000);
+      let res;
+      try {
+        res = await timedFetch(tileUrlFn(p.z, X, ty), 20000);
+      } catch {
+        continue;
+      }
       if (!res.ok) continue; // leave background
       const buf = Buffer.from(await res.arrayBuffer());
       if (buf.length < 200) continue;
@@ -173,6 +183,60 @@ async function fetchEOXStitched(lat, lon, spanKm) {
     .resize(WIDTH, HEIGHT, { fit: 'fill' })
     .jpeg({ quality: 82 })
     .toBuffer();
+}
+
+/** Key-less EOX Sentinel-2 cloudless mosaic (fallback; not "latest"). */
+async function fetchEOXStitched(lat, lon, spanKm) {
+  return stitchTiles(bbox3857(lat, lon, spanKm), eoxTileUrl, EOX_MAX_Z);
+}
+
+/* ------------------- Microsoft Planetary Computer (keyless) ------------- *
+ * Free, no account: STAC search for the most recent Sentinel-2 L2A scene over
+ * the point (any cloud cover), then stitch its rendered "visual" tiles.
+ */
+const PC_STAC = 'https://planetarycomputer.microsoft.com/api/stac/v1/search';
+const PC_TILEJSON = 'https://planetarycomputer.microsoft.com/api/data/v1/item/tilejson.json';
+const PC_MAX_Z = clampInt(env.PC_MAX_Z, 14, 8, 16);
+
+async function pcSearchLatest(lat, lon) {
+  const to = new Date();
+  const from = new Date(to.getTime() - MONTHS_BACK * 30 * 86400000);
+  const body = {
+    collections: ['sentinel-2-l2a'],
+    intersects: { type: 'Point', coordinates: [lon, lat] },
+    datetime: `${from.toISOString()}/${to.toISOString()}`,
+    limit: 1,
+    sortby: [{ field: 'datetime', direction: 'desc' }],
+  };
+  const res = await fetch(PC_STAC, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error('PC search ' + res.status);
+  const j = await res.json();
+  const f = (j.features || [])[0];
+  if (!f) return null;
+  return { id: f.id, datetime: f.properties?.datetime || null, cloud: f.properties?.['eo:cloud_cover'] ?? null };
+}
+
+async function pcTileTemplate(itemId) {
+  const u = `${PC_TILEJSON}?collection=sentinel-2-l2a&item=${encodeURIComponent(itemId)}&assets=visual`;
+  const res = await timedFetch(u, 15000);
+  if (!res.ok) throw new Error('PC tilejson ' + res.status);
+  const j = await res.json();
+  const tpl = (j.tiles || [])[0];
+  if (!tpl) throw new Error('PC tilejson: no tiles');
+  return tpl;
+}
+
+async function fetchPlanetaryComputer(lat, lon, bb) {
+  const item = await pcSearchLatest(lat, lon);
+  if (!item) throw new Error('no recent scene found');
+  const tpl = await pcTileTemplate(item.id);
+  const tileFn = (z, x, y) => tpl.replace('{z}', z).replace('{x}', x).replace('{y}', y);
+  const buf = await stitchTiles(bb, tileFn, PC_MAX_Z);
+  return { buf, real: item };
 }
 
 /* ---------------------------- reverse geocode --------------------------- */
@@ -296,18 +360,21 @@ async function main() {
   console.log(`Tracking ${locations.length} fixed targets`);
   locations = locations.slice(0, LIMIT);
 
-  let provider = SH_ID && SH_SECRET ? 'cdse-s2l2a' : 'eox-s2cloudless';
+  // Provider preference:
+  //   CDSE (if secrets) → Planetary Computer (keyless, recent) → EOX (mosaic)
+  let provider = SH_ID && SH_SECRET ? 'cdse-s2l2a' : 'planetary-computer';
   let token = null;
   if (provider === 'cdse-s2l2a') {
     try {
       token = await sentinelHubToken();
       console.log('Sentinel Hub / CDSE: authenticated — fetching LATEST imagery (any cloud cover)');
     } catch (e) {
-      console.warn(`Sentinel Hub auth failed (${e.message}) — falling back to EOX cloudless mosaic`);
-      provider = 'eox-s2cloudless';
+      console.warn(`Sentinel Hub auth failed (${e.message}) — using Planetary Computer (key-less)`);
+      provider = 'planetary-computer';
     }
-  } else {
-    console.log('Provider: EOX Sentinel-2 cloudless mosaic (key-less). Set SH_CLIENT_ID/SH_CLIENT_SECRET for latest any-cloud imagery.');
+  }
+  if (provider === 'planetary-computer') {
+    console.log('Provider: Microsoft Planetary Computer (key-less) — LATEST Sentinel-2 L2A, any cloud cover');
   }
   console.log(`AI enhancement: ${AI_ENHANCE ? 'enabled' : 'disabled'}`);
 
@@ -328,18 +395,16 @@ async function main() {
 
     if (DRY) {
       const p = tilePlan(bb);
-      const X = ((p.tx0 % p.n) + p.n) % p.n;
-      console.log(`  [${idx}] ${loc.name} (~${span.toFixed(0)} km)`);
+      console.log(`  [${idx}] ${loc.name} (~${span.toFixed(0)} km) · provider=${provider}`);
       console.log(`        zoom=${p.z}  tiles=${p.tilesX}x${p.tilesY} (${p.tilesX * p.tilesY})  rows ${p.ty0}-${p.ty1} cols ${p.tx0}-${p.tx1}`);
-      console.log(`        GET ${eoxTileUrl(p.z, X, p.ty0)}`);
       continue;
     }
 
     let buf = null;
     let used = provider;
-    let real = null; // real metadata from the catalog, when available
+    let real = null; // real acquisition metadata, when available
     try {
-      if (token) {
+      if (provider === 'cdse-s2l2a' && token) {
         let from;
         let to = new Date();
         try {
@@ -357,18 +422,19 @@ async function main() {
         buf = await fetchSentinelHub(token, bb, from.toISOString(), to.toISOString());
         used = 'cdse-s2l2a';
       } else {
-        buf = await fetchEOXStitched(loc.lat, loc.lon, span);
+        const r = await fetchPlanetaryComputer(loc.lat, loc.lon, bb); // latest, any cloud
+        buf = r.buf;
+        real = r.real;
+        used = 'planetary-computer';
       }
     } catch (e) {
-      console.warn(`  [${idx}] ${used} failed: ${e.message}${token ? ' — retrying with EOX' : ''}`);
+      console.warn(`  [${idx}] ${used} failed: ${e.message} — falling back to EOX cloudless`);
       real = null;
-      if (token) {
-        try {
-          buf = await fetchEOXStitched(loc.lat, loc.lon, span);
-          used = 'eox-s2cloudless';
-        } catch (e2) {
-          console.warn(`  [${idx}] EOX also failed: ${e2.message}`);
-        }
+      try {
+        buf = await fetchEOXStitched(loc.lat, loc.lon, span);
+        used = 'eox-s2cloudless';
+      } catch (e2) {
+        console.warn(`  [${idx}] EOX also failed: ${e2.message}`);
       }
     }
     if (!buf) {

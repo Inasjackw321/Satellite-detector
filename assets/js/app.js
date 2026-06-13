@@ -9,7 +9,7 @@ import { TARGETS } from './targets.js';
 import { SCENE_PAGE } from './config.js';
 
 const state = {
-  mode: 'live', // 'live' | 'archive'
+  mode: 'archive', // 'live' | 'archive'
   locations: [],
   shown: 0,
 };
