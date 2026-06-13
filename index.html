@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#05080d" />
+  <meta name="description" content="ORBITAL — live disaster intelligence overlaying NASA EONET natural-event tracking onto Sentinel-2 satellite imagery." />
+  <title>ORBITAL · Disaster Intelligence — Sentinel-2</title>
+
+  <!-- Leaflet -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+  />
+  <link rel="preconnect" href="https://eonet.gsfc.nasa.gov" />
+  <link rel="preconnect" href="https://tiles.maps.eox.at" />
+  <link rel="stylesheet" href="assets/css/styles.css" />
+</head>
+<body>
+  <!-- ====================== BOOT SCREEN ====================== -->
+  <div id="boot" class="boot">
+    <div class="boot__inner">
+      <div class="boot__logo">◎ ORBITAL</div>
+      <div class="boot__bar"><span id="boot-fill" class="boot__fill"></span></div>
+      <div id="boot-status" class="boot__status">Establishing downlink…</div>
+    </div>
+  </div>
+
+  <!-- ====================== HEADER ====================== -->
+  <header class="topbar">
+    <div class="topbar__brand">
+      <span class="topbar__mark">◎</span>
+      <div class="topbar__title">
+        <strong>ORBITAL</strong>
+        <span>Disaster Intelligence</span>
+      </div>
+    </div>
+
+    <div class="topbar__meta">
+      <div class="chip chip--live" id="link-status">
+        <span class="dot"></span> <span id="link-label">DOWNLINK</span>
+      </div>
+      <div class="chip" title="Imagery source">
+        SENTINEL-2 · NASA EONET
+      </div>
+      <div class="chip mono" id="clock">--:--:-- UTC</div>
+    </div>
+  </header>
+
+  <!-- ====================== CONTROL BAR ====================== -->
+  <section class="controls">
+    <div class="controls__group controls__group--filters">
+      <span class="controls__label">CATEGORIES</span>
+      <div id="filters" class="filters"><!-- filter chips injected --></div>
+    </div>
+
+    <div class="controls__group">
+      <label class="field">
+        <span class="field__label">WINDOW</span>
+        <select id="days" class="field__input">
+          <option value="7">7 days</option>
+          <option value="20" selected>20 days</option>
+          <option value="60">60 days</option>
+          <option value="180">180 days</option>
+          <option value="365">1 year</option>
+        </select>
+      </label>
+
+      <label class="field">
+        <span class="field__label">IMAGERY</span>
+        <select id="basemap" class="field__input">
+          <option value="s2">Sentinel-2 Cloudless</option>
+          <option value="viirs">NASA VIIRS (near-real-time)</option>
+          <option value="terrain">Terrain Light</option>
+        </select>
+      </label>
+
+      <label class="field field--search">
+        <span class="field__label">SEARCH</span>
+        <input id="search" class="field__input" type="search" placeholder="Filter by name…" autocomplete="off" />
+      </label>
+
+      <button id="refresh" class="btn" title="Re-fetch live feed">⟳ REFRESH</button>
+    </div>
+  </section>
+
+  <!-- ====================== STATS STRIP ====================== -->
+  <section id="stats" class="stats"><!-- stat tiles injected --></section>
+
+  <!-- ====================== MAIN GRID ====================== -->
+  <main class="layout">
+    <!-- Live operational map -->
+    <section class="panel panel--map">
+      <div class="panel__head">
+        <h2>GLOBAL THEATER</h2>
+        <span id="map-readout" class="panel__readout mono">— events plotted</span>
+      </div>
+      <div id="map" class="map"></div>
+      <div class="map__legend" id="legend"><!-- legend injected --></div>
+    </section>
+
+    <!-- Event feed -->
+    <section class="panel panel--feed">
+      <div class="panel__head">
+        <h2>EVENT FEED</h2>
+        <span id="feed-count" class="panel__readout mono">0</span>
+      </div>
+      <ul id="feed" class="feed"><!-- feed rows injected --></ul>
+    </section>
+  </main>
+
+  <!-- ====================== IMAGERY GALLERY ====================== -->
+  <section class="gallery-wrap">
+    <div class="panel__head panel__head--gallery">
+      <h2>SATELLITE TARGETS — SENTINEL-2 OVERLAY</h2>
+      <span id="gallery-count" class="panel__readout mono">0 targets</span>
+    </div>
+    <div id="gallery" class="gallery"><!-- target cards injected --></div>
+    <div class="gallery__more">
+      <button id="load-more" class="btn btn--ghost" hidden>LOAD MORE TARGETS</button>
+    </div>
+  </section>
+
+  <!-- ====================== FOOTER ====================== -->
+  <footer class="footer">
+    <span>Data: <a href="https://eonet.gsfc.nasa.gov/" target="_blank" rel="noopener">NASA EONET v3</a></span>
+    <span>Imagery: <a href="https://s2maps.eu" target="_blank" rel="noopener">Sentinel-2 cloudless</a> by EOX · <a href="https://earthdata.nasa.gov/gibs" target="_blank" rel="noopener">NASA GIBS</a></span>
+    <span>Map: <a href="https://leafletjs.com" target="_blank" rel="noopener">Leaflet</a></span>
+  </footer>
+
+  <!-- ====================== DETAIL MODAL ====================== -->
+  <div id="modal" class="modal" hidden>
+    <div class="modal__backdrop" data-close></div>
+    <div class="modal__panel" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <button class="modal__close" data-close aria-label="Close">✕</button>
+      <div class="modal__grid">
+        <div id="modal-map" class="modal__map"></div>
+        <div class="modal__info">
+          <div id="modal-cat" class="modal__cat">CATEGORY</div>
+          <h3 id="modal-title">Target</h3>
+          <dl id="modal-dl" class="modal__dl"></dl>
+          <div id="modal-links" class="modal__links"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Leaflet -->
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""
+  ></script>
+  <script type="module" src="assets/js/app.js"></script>
+</body>
+</html>
