@@ -41,7 +41,8 @@ improves quality; see below.)
 - 🆕 **Latest acquisition, any cloud cover** — key-less via Planetary Computer,
   with the **real** date / cloud-cover / scene-id.
 - 🔍 **Zoom in / out** on every scene (pan + zoom controls).
-- ⤓ **Download** button on each scene to save the image.
+- ⤓ **Download** button on each scene — saves the **whole annotated card**
+  (imagery + metadata panel + locator) as a PNG, matching what's on screen.
 - 🤖 Each downloaded image is run through a **free AI enhancer** (ESRGAN).
 - 🧾 Metadata panel: location, acquisition block, cloud-cover bar, decimal-degree
   coordinates, scene ID, and a live dark **locator inset**.

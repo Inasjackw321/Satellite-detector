@@ -160,6 +160,10 @@ a:hover { text-decoration: underline; }
   border-radius: 7px; padding: 7px 11px; backdrop-filter: blur(4px);
 }
 .scene__btn:hover { border-color: var(--teal); color: #fff; }
+.scene__btn:active { transform: translateY(1px); }
+/* hide chrome while snapshotting for download */
+.scene.is-capturing .scene__tools,
+.scene.is-capturing .leaflet-control-container { display: none !important; }
 
 /* dark Leaflet zoom controls + image overlay */
 .leaflet-control-zoom a {

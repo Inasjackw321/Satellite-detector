@@ -74,22 +74,60 @@ function buildLocator(container, loc) {
   return map;
 }
 
-/** Download the scene image as a file. */
-async function downloadImage(loc) {
+/** Lazy-load html2canvas (only when the user first downloads). */
+let _h2c = null;
+async function getHtml2Canvas() {
+  if (_h2c) return _h2c;
+  if (window.html2canvas) return (_h2c = window.html2canvas);
+  await new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://unpkg.com/html2canvas@1.4.1/dist/html2canvas.min.js';
+    s.onload = resolve;
+    s.onerror = reject;
+    document.head.appendChild(s);
+  });
+  return (_h2c = window.html2canvas);
+}
+
+function triggerDownload(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+/** Download the whole annotated card (image + overlay) as a PNG. */
+async function downloadImage(loc, cardEl) {
   const base = `${(loc.name || 'scene').replace(/[^\w.-]+/g, '_')}_${loc.date || loc.id || ''}`.replace(/_+$/, '');
+  const btn = cardEl.querySelector('[data-download]');
+  const label = btn && btn.textContent;
+  if (btn) { btn.disabled = true; btn.textContent = '⤓ RENDERING…'; }
   try {
-    const res = await fetch(loc.image, { cache: 'no-store' });
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${base}.jpg`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    const h2c = await getHtml2Canvas();
+    cardEl.classList.add('is-capturing');
+    const canvas = await h2c(cardEl, {
+      useCORS: true,
+      backgroundColor: '#05080c',
+      scale: Math.min(2, window.devicePixelRatio || 1),
+      logging: false,
+    });
+    cardEl.classList.remove('is-capturing');
+    await new Promise((res) => canvas.toBlob((b) => { triggerDownload(b, `${base}.png`); res(); }, 'image/png'));
   } catch (e) {
-    window.open(loc.image, '_blank', 'noopener');
+    cardEl.classList.remove('is-capturing');
+    // Fallback: download the raw satellite image.
+    try {
+      const r = await fetch(loc.image, { cache: 'no-store' });
+      triggerDownload(await r.blob(), `${base}.jpg`);
+    } catch (_) {
+      window.open(loc.image, '_blank', 'noopener');
+    }
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = label; }
   }
 }
 
@@ -159,7 +197,7 @@ export function buildSceneCard(loc) {
   if (dl) {
     dl.addEventListener('click', (e) => {
       e.stopPropagation();
-      downloadImage(loc);
+      downloadImage(loc, el);
     });
   }
   return el;
