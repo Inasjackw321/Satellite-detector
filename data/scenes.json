@@ -1,5 +1,5 @@
 {
-  "generated": "2026-06-18T10:43:17.796Z",
+  "generated": "2026-06-19T10:49:32.854Z",
   "source": "targets",
   "provider": "planetary-computer",
   "width": 1024,
@@ -63,7 +63,7 @@
       "lat": 29.34505943462331,
       "lon": 47.52193482882217,
       "zoom": 14,
-      "date": "2026-06-13",
+      "date": "2026-06-18",
       "category": null,
       "image": "data/scenes/scene-03.jpg",
       "provider": "planetary-computer",
@@ -74,12 +74,12 @@
         5296784,
         3424638
       ],
-      "satName": "Sentinel-2B",
-      "acquired": "2026-06-13",
-      "timeUTC": "07:26:09",
-      "cloudPct": 5.4,
+      "satName": "Sentinel-2A",
+      "acquired": "2026-06-18",
+      "timeUTC": "07:26:11",
+      "cloudPct": 7,
       "cloudLabel": "Clear sky",
-      "sceneId": "S2B_MSIL2A_20260613T072609_R049_T38RQT_20260613T094125"
+      "sceneId": "S2C_MSIL2A_20260618T072611_R049_T38RQT_20260618T105715"
     },
     {
       "id": "T04",
