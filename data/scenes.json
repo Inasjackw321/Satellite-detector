@@ -1,5 +1,5 @@
 {
-  "generated": "2026-06-19T10:49:32.854Z",
+  "generated": "2026-06-20T09:30:21.483Z",
   "source": "targets",
   "provider": "planetary-computer",
   "width": 1024,
@@ -88,7 +88,7 @@
       "lat": -7.314865361237087,
       "lon": 72.41965579850198,
       "zoom": 14,
-      "date": "2026-06-16",
+      "date": "2026-06-19",
       "category": null,
       "image": "data/scenes/scene-04.jpg",
       "provider": "planetary-computer",
@@ -100,11 +100,11 @@
         -811508
       ],
       "satName": "Sentinel-2A",
-      "acquired": "2026-06-16",
-      "timeUTC": "05:06:51",
-      "cloudPct": 8.2,
-      "cloudLabel": "Clear sky",
-      "sceneId": "S2C_MSIL2A_20260616T050651_R019_T43MBN_20260616T095354"
+      "acquired": "2026-06-19",
+      "timeUTC": "05:16:51",
+      "cloudPct": 56.4,
+      "cloudLabel": "Cloudy",
+      "sceneId": "S2C_MSIL2A_20260619T051651_R062_T43MBN_20260619T101916"
     },
     {
       "id": "T05",
@@ -113,7 +113,7 @@
       "lat": 13.583061672569384,
       "lon": 144.9292478244587,
       "zoom": 14,
-      "date": "2026-06-18",
+      "date": "2026-06-20",
       "category": null,
       "image": "data/scenes/scene-05.jpg",
       "provider": "planetary-computer",
@@ -124,12 +124,12 @@
         16140117,
         1531425
       ],
-      "satName": "Sentinel-2A",
-      "acquired": "2026-06-18",
-      "timeUTC": "01:03:11",
-      "cloudPct": 100,
-      "cloudLabel": "Overcast",
-      "sceneId": "S2C_MSIL2A_20260618T010311_R045_T55PBR_20260618T030906"
+      "satName": "Sentinel-2B",
+      "acquired": "2026-06-20",
+      "timeUTC": "00:51:59",
+      "cloudPct": 37.4,
+      "cloudLabel": "Partly cloudy",
+      "sceneId": "S2B_MSIL2A_20260620T005159_R002_T55PBR_20260620T023034"
     },
     {
       "id": "T06",
@@ -138,7 +138,7 @@
       "lat": 52.362636071596775,
       "lon": 0.4863578559969946,
       "zoom": 14,
-      "date": "2026-06-16",
+      "date": "2026-06-19",
       "category": null,
       "image": "data/scenes/scene-06.jpg",
       "provider": "planetary-computer",
@@ -149,12 +149,12 @@
         60808,
         6870962
       ],
-      "satName": "Sentinel-2A",
-      "acquired": "2026-06-16",
-      "timeUTC": "11:07:11",
-      "cloudPct": 81.4,
-      "cloudLabel": "Overcast",
-      "sceneId": "S2A_MSIL2A_20260616T110711_R137_T31UCU_20260616T193416"
+      "satName": "Sentinel-2B",
+      "acquired": "2026-06-19",
+      "timeUTC": "11:06:19",
+      "cloudPct": 0.8,
+      "cloudLabel": "Clear sky",
+      "sceneId": "S2B_MSIL2A_20260619T110619_R137_T31UCU_20260619T133614"
     }
   ]
 }
