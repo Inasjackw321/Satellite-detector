@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-02T09:25:49.369Z",
+  "generated": "2026-07-03T09:30:22.908Z",
   "source": "targets",
   "provider": "planetary-computer",
   "width": 1024,
@@ -108,8 +108,8 @@
     },
     {
       "id": "T05",
-      "name": "Yigo Village",
-      "country": "Guam",
+      "name": "TARGET 05",
+      "country": null,
       "lat": 13.583061672569384,
       "lon": 144.9292478244587,
       "zoom": 14,
