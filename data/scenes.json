@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-03T09:30:22.908Z",
+  "generated": "2026-07-04T08:47:30.578Z",
   "source": "targets",
   "provider": "planetary-computer",
   "width": 1024,
@@ -108,8 +108,8 @@
     },
     {
       "id": "T05",
-      "name": "TARGET 05",
-      "country": null,
+      "name": "Yigo Village",
+      "country": "Guam",
       "lat": 13.583061672569384,
       "lon": 144.9292478244587,
       "zoom": 14,
@@ -138,7 +138,7 @@
       "lat": 52.362636071596775,
       "lon": 0.4863578559969946,
       "zoom": 14,
-      "date": "2026-06-24",
+      "date": "2026-07-03",
       "category": null,
       "image": "data/scenes/scene-06.jpg",
       "provider": "planetary-computer",
@@ -150,11 +150,11 @@
         6870962
       ],
       "satName": "Sentinel-2A",
-      "acquired": "2026-06-24",
-      "timeUTC": "11:06:21",
-      "cloudPct": 0.1,
-      "cloudLabel": "Clear sky",
-      "sceneId": "S2C_MSIL2A_20260624T110621_R137_T31UCU_20260624T144908"
+      "acquired": "2026-07-03",
+      "timeUTC": "10:56:51",
+      "cloudPct": 99.7,
+      "cloudLabel": "Overcast",
+      "sceneId": "S2A_MSIL2A_20260703T105651_R094_T31UCU_20260703T173904"
     }
   ]
 }
