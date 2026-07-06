@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-05T09:16:07.268Z",
+  "generated": "2026-07-06T10:53:09.536Z",
   "source": "targets",
   "provider": "planetary-computer",
   "width": 1024,
@@ -38,7 +38,7 @@
       "lat": 24.06242368712488,
       "lon": 47.56557171415564,
       "zoom": 14,
-      "date": "2026-06-25",
+      "date": "2026-07-05",
       "category": null,
       "image": "data/scenes/scene-02.jpg",
       "provider": "planetary-computer",
@@ -50,11 +50,11 @@
         2766017
       ],
       "satName": "Sentinel-2A",
-      "acquired": "2026-06-25",
+      "acquired": "2026-07-05",
       "timeUTC": "07:16:21",
       "cloudPct": 0,
       "cloudLabel": "Clear sky",
-      "sceneId": "S2C_MSIL2A_20260625T071621_R006_T38QQM_20260625T104742"
+      "sceneId": "S2C_MSIL2A_20260705T071621_R006_T38QQM_20260705T104523"
     },
     {
       "id": "T03",
@@ -63,7 +63,7 @@
       "lat": 29.34505943462331,
       "lon": 47.52193482882217,
       "zoom": 14,
-      "date": "2026-06-23",
+      "date": "2026-07-03",
       "category": null,
       "image": "data/scenes/scene-03.jpg",
       "provider": "planetary-computer",
@@ -75,11 +75,11 @@
         3424638
       ],
       "satName": "Sentinel-2B",
-      "acquired": "2026-06-23",
-      "timeUTC": "07:26:19",
-      "cloudPct": 5.6,
+      "acquired": "2026-07-03",
+      "timeUTC": "07:26:09",
+      "cloudPct": 7.1,
       "cloudLabel": "Clear sky",
-      "sceneId": "S2B_MSIL2A_20260623T072619_R049_T38RQT_20260623T094203"
+      "sceneId": "S2B_MSIL2A_20260703T072609_R049_T38RQT_20260703T094306"
     },
     {
       "id": "T04",
@@ -88,7 +88,7 @@
       "lat": -7.314865361237087,
       "lon": 72.41965579850198,
       "zoom": 14,
-      "date": "2026-06-19",
+      "date": "2026-06-29",
       "category": null,
       "image": "data/scenes/scene-04.jpg",
       "provider": "planetary-computer",
@@ -100,11 +100,11 @@
         -811508
       ],
       "satName": "Sentinel-2A",
-      "acquired": "2026-06-19",
+      "acquired": "2026-06-29",
       "timeUTC": "05:16:51",
-      "cloudPct": 56.4,
-      "cloudLabel": "Cloudy",
-      "sceneId": "S2C_MSIL2A_20260619T051651_R062_T43MBN_20260619T101916"
+      "cloudPct": 10.7,
+      "cloudLabel": "Mostly clear",
+      "sceneId": "S2C_MSIL2A_20260629T051651_R062_T43MBN_20260629T101127"
     },
     {
       "id": "T05",
@@ -113,7 +113,7 @@
       "lat": 13.583061672569384,
       "lon": 144.9292478244587,
       "zoom": 14,
-      "date": "2026-06-30",
+      "date": "2026-07-05",
       "category": null,
       "image": "data/scenes/scene-05.jpg",
       "provider": "planetary-computer",
@@ -124,12 +124,12 @@
         16140117,
         1531425
       ],
-      "satName": "Sentinel-2B",
-      "acquired": "2026-06-30",
-      "timeUTC": "00:51:59",
-      "cloudPct": 4.1,
-      "cloudLabel": "Clear sky",
-      "sceneId": "S2B_MSIL2A_20260630T005159_R002_T55PBR_20260630T023158"
+      "satName": "Sentinel-2A",
+      "acquired": "2026-07-05",
+      "timeUTC": "00:52:01",
+      "cloudPct": 100,
+      "cloudLabel": "Overcast",
+      "sceneId": "S2C_MSIL2A_20260705T005201_R002_T55PBR_20260705T030712"
     },
     {
       "id": "T06",
